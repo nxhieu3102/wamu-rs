@@ -6,10 +6,10 @@ use crypto_bigint::U256;
 
 use crate::crypto::VerifyingKey;
 use crate::errors::{IdentityAuthedRequestError, QuorumApprovedRequestError};
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::{
     CommandApprovalPayload, IdentityAuthedRequestPayload, QuorumApprovedChallengeResponsePayload,
 };
+use crate::traits::IdentityProvider;
 use crate::{crypto, identity_authed_request, identity_challenge, wrappers};
 
 /// Given a "command" and an identity provider, returns the payload for initiating an quorum approved request.
@@ -29,8 +29,11 @@ pub fn verify_request_and_initiate_challenge(
     identity_provider: &impl IdentityProvider,
     verified_parties: &[VerifyingKey],
 ) -> Result<CommandApprovalPayload, IdentityAuthedRequestError> {
-    let challenge_fragment =
-        wrappers::verify_authed_request_and_initiate_challenge(command, request, verified_parties)?;
+    let challenge_fragment = wrappers::verify_identity_authed_request_and_initiate_challenge(
+        command,
+        request,
+        verified_parties,
+    )?;
     let signature = identity_provider.sign(&command_approval_message_bytes(
         &challenge_fragment,
         request.command,

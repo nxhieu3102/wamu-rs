@@ -1,4 +1,4 @@
-//! Test utilities for IR types and abstractions.
+//! Test utilities.
 
 #![cfg(test)]
 

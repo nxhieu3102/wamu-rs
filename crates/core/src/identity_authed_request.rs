@@ -4,8 +4,8 @@
 
 use crate::crypto::VerifyingKey;
 use crate::errors::{Error, IdentityAuthedRequestError};
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::IdentityAuthedRequestPayload;
+use crate::traits::IdentityProvider;
 use crate::{crypto, utils};
 
 /// How long a request remains valid.

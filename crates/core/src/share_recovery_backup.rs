@@ -17,9 +17,9 @@ use hkdf::Hkdf;
 use sha2::Sha256;
 
 use crate::errors::ShareBackupRecoveryError;
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::EncryptedShareBackup;
 use crate::sub_share::{SigningShare, SubShare};
+use crate::traits::IdentityProvider;
 
 /// Given an entropy seed (i.e typically a standardized phrase), "signing share", "sub-share" and identity provider,
 /// returns an ok result including the encrypted share backup (i.e an encrypted "signing share" and "sub-share", and a random nonce)

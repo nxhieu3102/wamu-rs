@@ -1,4 +1,4 @@
-//! Types, abstractions and utilities for cryptography.
+//! Types, abstractions and utilities for lower-level cryptography.
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{impl_modulus, NonZero, RandomMod, U256};

@@ -1,8 +1,8 @@
-//! Types and abstractions for [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+//! Traits for core types.
 
 use crate::crypto::{Signature, VerifyingKey};
 
-/// Interface for an identity provider.
+/// Interface for a [decentralized identity](https://ethereum.org/en/decentralized-identity/) provider.
 ///
 /// **NOTE:** For interoperability with existing wallet solutions,
 /// the only requirement for decentralized identity providers is

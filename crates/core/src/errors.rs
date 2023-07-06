@@ -15,7 +15,7 @@ impl From<CryptoError> for Error {
     }
 }
 
-/// A cryptography error.
+/// A low-level cryptography error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CryptoError {
     /// An invalid signature for the message.

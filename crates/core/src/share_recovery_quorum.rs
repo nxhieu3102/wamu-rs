@@ -6,8 +6,8 @@ use crypto_bigint::U256;
 
 use crate::crypto::{Signature, VerifyingKey};
 use crate::errors::{Error, IdentityAuthedRequestError};
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::IdentityAuthedRequestPayload;
+use crate::traits::IdentityProvider;
 use crate::{identity_authed_request, identity_challenge, wrappers};
 
 const SHARE_RECOVERY: &str = "share-recovery";
@@ -24,7 +24,7 @@ pub fn verify_request_and_initiate_challenge(
     request: &IdentityAuthedRequestPayload,
     verified_parties: &[VerifyingKey],
 ) -> Result<U256, IdentityAuthedRequestError> {
-    wrappers::verify_authed_request_and_initiate_challenge(
+    wrappers::verify_identity_authed_request_and_initiate_challenge(
         SHARE_RECOVERY,
         request,
         verified_parties,

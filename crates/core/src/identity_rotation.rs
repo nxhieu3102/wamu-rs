@@ -6,9 +6,9 @@ use crypto_bigint::U256;
 
 use crate::crypto::VerifyingKey;
 use crate::errors::{Error, IdentityAuthedRequestError};
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::{IdentityAuthedRequestPayload, IdentityRotationChallengeResponsePayload};
 use crate::sub_share::{SigningShare, SubShare};
+use crate::traits::IdentityProvider;
 use crate::{identity_authed_request, identity_challenge, share_split_reconstruct, wrappers};
 
 const IDENTITY_ROTATION: &str = "identity-rotation";
@@ -25,7 +25,7 @@ pub fn verify_request_and_initiate_challenge(
     request: &IdentityAuthedRequestPayload,
     verified_parties: &[VerifyingKey],
 ) -> Result<U256, IdentityAuthedRequestError> {
-    wrappers::verify_authed_request_and_initiate_challenge(
+    wrappers::verify_identity_authed_request_and_initiate_challenge(
         IDENTITY_ROTATION,
         request,
         verified_parties,

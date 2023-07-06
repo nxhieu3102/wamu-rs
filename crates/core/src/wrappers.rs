@@ -1,4 +1,4 @@
-//! Convenience wrapper around core Wamu sub-protocols.
+//! Convenience wrappers around core sub-protocols.
 
 use crypto_bigint::U256;
 
@@ -7,8 +7,8 @@ use crate::crypto::{Signature, VerifyingKey};
 use crate::errors::{Error, IdentityAuthedRequestError};
 use crate::identity_authed_request;
 use crate::identity_challenge;
-use crate::identity_provider::IdentityProvider;
 use crate::payloads::IdentityAuthedRequestPayload;
+use crate::traits::IdentityProvider;
 
 /// Given random bytes and an identity provider, returns the verifying key and a signature of the random bytes.
 pub fn initiate_request_with_signature(
@@ -43,8 +43,8 @@ pub fn verify_request_with_signature(
 
 /// Given a "command", an identity authenticated request payload and a list of verifying keys for the other parties,
 /// returns an ok result with a challenge fragment for initiating an identity challenge for a valid request
-/// or an appropriate error result for an invalid request.
-pub fn verify_authed_request_and_initiate_challenge(
+/// or an appropriate error result for an invalid request.s
+pub fn verify_identity_authed_request_and_initiate_challenge(
     command: &str,
     request: &IdentityAuthedRequestPayload,
     verified_parties: &[VerifyingKey],

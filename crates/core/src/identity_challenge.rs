@@ -8,7 +8,7 @@ use crypto_bigint::{Encoding, U256};
 use crate::crypto;
 use crate::crypto::{Secp256k1Order, Signature, VerifyingKey};
 use crate::errors::CryptoError;
-use crate::identity_provider::IdentityProvider;
+use crate::traits::IdentityProvider;
 
 /// Returns a challenge fragment for initiating an identity challenge.
 ///

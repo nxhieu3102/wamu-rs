@@ -1,4 +1,4 @@
-//! Utilities for Wamu.
+//! Utilities for core sub-protocols.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 

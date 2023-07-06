@@ -4,8 +4,8 @@
 
 use crypto_bigint::{Encoding, U256};
 
-use crate::identity_provider::IdentityProvider;
 use crate::sub_share::{SigningShare, SubShare, SubShareInterpolator};
+use crate::traits::IdentityProvider;
 
 /// Given a "secret share" and an identity provider, returns "signing share" and "sub-share"
 /// that can be used to reconstruct the "secret share" given the same identity provider.
