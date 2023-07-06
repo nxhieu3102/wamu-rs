@@ -13,7 +13,7 @@ pub use self::{
     sub_share::{SigningShare, SubShare},
 };
 
-mod crypto;
+pub mod crypto;
 mod errors;
 pub mod identity_authed_request;
 pub mod identity_challenge;
