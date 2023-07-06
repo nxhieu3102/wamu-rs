@@ -37,7 +37,7 @@ pub struct Signature {
     /// The elliptic curve.
     pub curve: EllipticCurve,
     /// The hash function.
-    pub hash: HashFunction,
+    pub hash: MessageDigest,
     /// The encoding standard used for the signature.
     pub enc: SignatureEncoding,
 }
@@ -61,13 +61,13 @@ pub enum EllipticCurve {
     Curve25519,
 }
 
-/// A cryptographic hash function.
+/// A cryptographic message digest/hash function.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HashFunction {
+pub enum MessageDigest {
     /// Ref: <https://en.wikipedia.org/wiki/SHA-2>.
     SHA256,
     /// Ref: <https://en.wikipedia.org/wiki/SHA-3>.
-    KECCAK256,
+    Keccak256,
 }
 
 /// A key encoding format.
@@ -102,19 +102,23 @@ pub fn verify_signature(
     msg: &[u8],
     signature: &Signature,
 ) -> Result<(), CryptoError> {
-    if verifying_key.algo != signature.algo {
-        // Signature algorithms should match.
-        Err(CryptoError::SignatureAlgorithmMismatch)
-    } else if verifying_key.curve != signature.curve {
-        // Elliptic curves should match.
-        Err(CryptoError::EllipticCurveMismatch)
+    if (verifying_key.algo, verifying_key.curve) != (signature.algo, signature.curve) {
+        // Signature algorithm and elliptic curve for the verifying key and signature should match.
+        Err(CryptoError::SchemeMismatch)
     } else {
-        match verifying_key.algo {
-            SignatureAlgorithm::ECDSA => match verifying_key.curve {
-                EllipticCurve::Secp256k1 => match verifying_key.enc {
-                    KeyEncoding::SEC1 => match signature.enc {
-                        SignatureEncoding::DER => match signature.hash {
-                            HashFunction::SHA256 => {
+        // Matches signature scheme (algorithm + curve).
+        match (verifying_key.algo, verifying_key.curve) {
+            // Verifies ECDSA/Secp256k1 signatures.
+            // SEC1 encoded verifying key and SHA-256 digest and DER encoded signature.
+            (SignatureAlgorithm::ECDSA, EllipticCurve::Secp256k1) => {
+                // Matches the message digest/hash function.
+                match signature.hash {
+                    // Verifies ECDSA/Secp256k1/SHA-256 signatures.
+                    MessageDigest::SHA256 => {
+                        // Matches verifying key and signature encoding.
+                        match (verifying_key.enc, signature.enc) {
+                            // Verifies DER encoded ECDSA/Secp256k1/SHA-256 signatures with SEC1 encoded verifying key.
+                            (KeyEncoding::SEC1, SignatureEncoding::DER) => {
                                 // Deserialize verifying key.
                                 // `k256::ecdsa::VerifyingKey` uses `Secp256k1` and `SHA-256`.
                                 let ver_key =
@@ -129,15 +133,13 @@ pub fn verify_signature(
                                     .verify(msg, &sig)
                                     .map_err(|_| CryptoError::InvalidSignature)
                             }
-                            _ => Err(CryptoError::UnsupportedHashFunction),
-                        },
-                        _ => Err(CryptoError::UnsupportedSignatureEncoding),
-                    },
-                    _ => Err(CryptoError::UnsupportedKeyEncoding),
-                },
-                _ => Err(CryptoError::UnsupportedEllipticCurve),
-            },
-            _ => Err(CryptoError::UnsupportedSignatureAlgorithm),
+                            _ => Err(CryptoError::UnsupportedEncoding),
+                        }
+                    }
+                    _ => Err(CryptoError::UnsupportedDigest),
+                }
+            }
+            _ => Err(CryptoError::UnsupportedScheme),
         }
     }
 }

@@ -22,20 +22,14 @@ pub enum CryptoError {
     InvalidSignature,
     /// An invalid verifying key.
     InvalidVerifyingKey,
-    /// An unsupported signature algorithm.
-    UnsupportedSignatureAlgorithm,
+    /// A signature algorithm and/or elliptic curve mismatch between the verifying key and signature.
+    SchemeMismatch,
+    /// An unsupported cryptographic scheme algorithm (e.g unsupported combination of signature algorithm and elliptic curve).
+    UnsupportedScheme,
     /// An unsupported hash function.
-    UnsupportedHashFunction,
-    /// An unsupported elliptic curve.
-    UnsupportedEllipticCurve,
-    /// An unsupported key encoding standard.
-    UnsupportedKeyEncoding,
-    /// An unsupported signature encoding standard.
-    UnsupportedSignatureEncoding,
-    /// A signature algorithm mismatch (e.g between the verifying key and signature).
-    SignatureAlgorithmMismatch,
-    /// An elliptic curve mismatch (e.g between the verifying key and signature).
-    EllipticCurveMismatch,
+    UnsupportedDigest,
+    /// An unsupported encoding standard (e.g for either the verifying key or the signature).
+    UnsupportedEncoding,
 }
 
 /// An identity authenticated request verification error.

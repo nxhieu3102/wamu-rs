@@ -5,7 +5,7 @@
 use k256::ecdsa::{signature::Signer, SigningKey};
 
 use crate::crypto::{
-    EllipticCurve, HashFunction, KeyEncoding, Signature, SignatureAlgorithm, SignatureEncoding,
+    EllipticCurve, KeyEncoding, MessageDigest, Signature, SignatureAlgorithm, SignatureEncoding,
     VerifyingKey,
 };
 use crate::{crypto, IdentityProvider};
@@ -48,7 +48,7 @@ impl IdentityProvider for MockECDSAIdentityProvider {
             sig: signature.to_der().as_bytes().to_vec(),
             algo: SignatureAlgorithm::ECDSA,
             curve: EllipticCurve::Secp256k1,
-            hash: HashFunction::SHA256,
+            hash: MessageDigest::SHA256,
             enc: SignatureEncoding::DER,
         }
     }
