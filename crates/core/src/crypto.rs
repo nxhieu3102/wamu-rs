@@ -1,4 +1,4 @@
-//! Cryptography types, abstractions and utilities.
+//! Types, abstractions and utilities for cryptography.
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{impl_modulus, NonZero, RandomMod, U256};
@@ -27,7 +27,7 @@ pub struct VerifyingKey {
     pub enc: KeyEncoding,
 }
 
-/// A Signature (e.g a ECDSA/secp256k1/SHA-256 signature).
+/// A signature (e.g a ECDSA/secp256k1/SHA-256 signature).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Signature {
     /// The signature as a sequence of bytes.
@@ -88,7 +88,7 @@ pub enum SignatureEncoding {
     RLP,
 }
 
-/// Generate a cryptographically secure random `U256` which is less than the order of the `Secp256k1` elliptic curve.
+/// Generates a cryptographically secure random `U256` which is less than the order of the `Secp256k1` elliptic curve.
 pub fn random_mod() -> U256 {
     let mut rng = rand::thread_rng();
     let modulus = NonZero::new(Secp256k1Order::MODULUS)
