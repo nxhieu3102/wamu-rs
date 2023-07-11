@@ -9,7 +9,7 @@ pub use self::{
         CommandApprovalPayload, EncryptedShareBackup, IdentityAuthedRequestPayload,
         IdentityRotationChallengeResponsePayload, QuorumApprovedChallengeResponsePayload,
     },
-    sub_share::{SigningShare, SubShare},
+    share::{SecretShare, SigningShare, SubShare},
     traits::IdentityProvider,
 };
 
@@ -20,9 +20,9 @@ pub mod identity_challenge;
 pub mod identity_rotation;
 mod payloads;
 pub mod quorum_approved_request;
+mod share;
 pub mod share_recovery_backup;
 pub mod share_split_reconstruct;
-mod sub_share;
 mod test_utils;
 mod traits;
 mod utils;

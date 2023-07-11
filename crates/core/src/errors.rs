@@ -3,10 +3,28 @@
 /// A protocol error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Error {
-    /// A signature from an unauthorized party.
-    UnauthorizedParty,
+    /// Arithmetic error.
+    Arithmetic(ArithmeticError),
     /// A cryptography error.
     Crypto(CryptoError),
+    /// Encoding error.
+    Encoding,
+    /// A signature from an unauthorized party.
+    UnauthorizedParty,
+}
+
+/// An arithmetic error.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ArithmeticError {
+    /// The provided value is larger than the modulus
+    /// (e.g values larger than the curve order for elliptic curve operations).
+    ModulusOverflow,
+}
+
+impl From<ArithmeticError> for Error {
+    fn from(error: ArithmeticError) -> Self {
+        Self::Arithmetic(error)
+    }
 }
 
 impl From<CryptoError> for Error {

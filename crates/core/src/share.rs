@@ -1,4 +1,4 @@
-//! Sub-share types, abstractions and utilities.
+//! Secret share and "sub-share" types, abstractions and utilities.
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{const_residue, Encoding, U256};
@@ -6,6 +6,46 @@ use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::crypto;
 use crate::crypto::Secp256k1Order;
+use crate::errors::{ArithmeticError, Error};
+
+/// A "secret share" as defined by the Wamu protocol.
+///
+/// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub struct SecretShare(U256);
+
+impl From<U256> for SecretShare {
+    /// Converts a slice of bytes to a "secret share".
+    fn from(value: U256) -> Self {
+        Self(value)
+    }
+}
+
+impl SecretShare {
+    /// Returns the underlying `U256` for "secret share".
+    pub fn as_u256(&self) -> U256 {
+        self.0
+    }
+
+    /// Returns 32 bytes representation of the "secret share".
+    pub fn to_be_bytes(&self) -> [u8; 32] {
+        self.0.to_be_bytes()
+    }
+}
+
+impl TryFrom<&[u8]> for SecretShare {
+    type Error = Error;
+
+    /// Converts a slice of bytes to a "secret share".
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        // Input slice must be 32 bytes long.
+        if slice.len() == 32 {
+            Ok(Self(U256::from_be_slice(slice)))
+        } else {
+            Err(Error::Encoding)
+        }
+    }
+}
 
 /// A "signing share" as defined by the Wamu protocol.
 ///
@@ -26,18 +66,17 @@ impl SigningShare {
     }
 }
 
-impl From<&[u8]> for SigningShare {
+impl TryFrom<&[u8]> for SigningShare {
+    type Error = Error;
+
     /// Converts a slice of bytes to a "signing share".
-    ///
-    /// # Panics
-    /// Panics if the input slice is not 32 bytes long.
-    fn from(slice: &[u8]) -> Self {
-        assert_eq!(slice.len(), 32, "input slice should be 32 bytes long.");
-        Self(
-            slice.try_into().expect(
-                "Should be able to convert Vec<u8> of length 32 (i.e 256 bits) to [u8; 32].",
-            ),
-        )
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        // Input slice must be 32 bytes long.
+        if slice.len() == 32 {
+            Ok(Self(slice.try_into().map_err(|_| Error::Encoding)?))
+        } else {
+            Err(Error::Encoding)
+        }
     }
 }
 
@@ -52,19 +91,13 @@ pub struct SubShare {
 
 impl SubShare {
     /// Initializes a new "sub-share".
-    ///
-    /// # Panics
-    /// Panics if either the `x` or `y` coordinate is not less than the order of the `Secp256k1` curve.
-    pub fn new(x: U256, y: U256) -> Self {
-        assert!(
-            x < Secp256k1Order::MODULUS,
-            r#"The `x` coordinate for a "sub-share" must be less than the order of the `Secp256k1` curve."#
-        );
-        assert!(
-            y < Secp256k1Order::MODULUS,
-            r#"The `y` coordinate for a "sub-share" must be less than the order of the `Secp256k1` curve."#
-        );
-        Self { x, y }
+    pub fn new(x: U256, y: U256) -> Result<Self, ArithmeticError> {
+        // `x` or `y` coordinates must be less than the order of the `Secp256k1` curve.
+        if x < Secp256k1Order::MODULUS && y < Secp256k1Order::MODULUS {
+            Ok(Self { x, y })
+        } else {
+            Err(ArithmeticError::ModulusOverflow)
+        }
     }
 
     /// Returns the `x` coordinate of the "sub-share".
@@ -123,30 +156,24 @@ impl SubShareInterpolator {
     }
 
     /// Returns a unique "sub-share" for the index.
-    ///
-    /// # Panics
-    /// Panics if either the "index" is not less than the order of the `Secp256k1` curve or
-    /// is equal to zero (because the "sub-share" associated with the zero "index" is the "secret share").
-    pub fn sub_share(&self, idx: U256) -> SubShare {
-        assert!(
-            idx < Secp256k1Order::MODULUS,
-            r#"The index for a "sub-share" must be less than the order of the `Secp256k1` curve."#
-        );
-        assert!(
-            idx > U256::ZERO,
-            r#"The index for a "sub-share" must not be equal to zero!"#
-        );
+    pub fn sub_share(&self, idx: U256) -> Result<SubShare, ArithmeticError> {
+        // The "index" should be:
+        // - less than the order of the `Secp256k1` curve.
+        // - greater than zero (because the "sub-share" associated with the zero "index" is the "secret share").
+        if idx < Secp256k1Order::MODULUS && U256::ZERO < idx {
+            // Calculates the y-coordinate of the "sub-share".
+            let gradient = self.gradient;
+            let intercept = self.intercept;
+            let y_coord = (const_residue!(gradient, Secp256k1Order)
+                * const_residue!(idx, Secp256k1Order))
+                + const_residue!(intercept, Secp256k1Order);
 
-        // Calculates the y-coordinate of the "sub-share".
-        let gradient = self.gradient;
-        let intercept = self.intercept;
-        let y_coord = (const_residue!(gradient, Secp256k1Order)
-            * const_residue!(idx, Secp256k1Order))
-            + const_residue!(intercept, Secp256k1Order);
-
-        SubShare {
-            x: idx,
-            y: y_coord.retrieve(),
+            Ok(SubShare {
+                x: idx,
+                y: y_coord.retrieve(),
+            })
+        } else {
+            Err(ArithmeticError::ModulusOverflow)
         }
     }
 }
@@ -160,21 +187,22 @@ mod tests {
         // Take line, y = x + 1 (mod q).
         // The "secret share" is 1 i.e at index 0, x = 0 and y = 1.
         let secret_share = U256::ONE;
-        let sub_share_0 = SubShare::new(U256::ZERO, secret_share);
+        let sub_share_0 = SubShare::new(U256::ZERO, secret_share).unwrap();
 
         // The "sub-share" at index 1 is (1, 2) i.e when x = 1 and y = 2.
-        let sub_share_1 = SubShare::new(U256::ONE, U256::from(2u8));
+        let sub_share_1 = SubShare::new(U256::ONE, U256::from(2u8)).unwrap();
 
         // Initializes the "sub-share" interpolator for share splitting with "sub-shares" at index 0 and 1.
         let split_sub_share_interpolator = SubShareInterpolator::new(&sub_share_0, &sub_share_1);
 
         // The "sub-share" at index 2 is (2, 3),i.e when x = 2, y = 3.
-        let sub_share_2 = SubShare::new(U256::from(2u8), U256::from(3u8));
+        let sub_share_2 = SubShare::new(U256::from(2u8), U256::from(3u8)).unwrap();
 
         // Verify that the "sub-share" interpolator returns the right "sub-share" at index 2.
         assert_eq!(
             split_sub_share_interpolator
                 .sub_share(U256::from(2u8))
+                .unwrap()
                 .as_tuple(),
             sub_share_2.as_tuple()
         );

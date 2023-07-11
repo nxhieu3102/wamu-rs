@@ -18,7 +18,7 @@ use sha2::Sha256;
 
 use crate::errors::ShareBackupRecoveryError;
 use crate::payloads::EncryptedShareBackup;
-use crate::sub_share::{SigningShare, SubShare};
+use crate::share::{SigningShare, SubShare};
 use crate::traits::IdentityProvider;
 
 /// Given an entropy seed (i.e typically a standardized phrase), "signing share", "sub-share" and identity provider,
@@ -68,11 +68,8 @@ pub fn recover(
     let cipher = generate_encryption_cipher(entropy_seed, identity_provider);
     let signing_share_bytes =
         cipher.decrypt(nonce, encrypted_share_backup.signing_share.as_ref())?;
-    if signing_share_bytes.len() != 32 {
-        // "signing share" must be 32 bytes long.
-        return Err(ShareBackupRecoveryError::InvalidSigningShare);
-    }
-    let signing_share = SigningShare::from(signing_share_bytes.as_ref());
+    let signing_share = SigningShare::try_from(signing_share_bytes.as_ref())
+        .map_err(|_| ShareBackupRecoveryError::InvalidSigningShare)?;
     let sub_share = SubShare::new(
         U256::from_be_bytes(
             cipher
@@ -86,7 +83,8 @@ pub fn recover(
                 .try_into()
                 .map_err(|_| ShareBackupRecoveryError::InvalidSubShare)?,
         ),
-    );
+    )
+    .map_err(|_| ShareBackupRecoveryError::InvalidSubShare)?;
 
     Ok((signing_share, sub_share))
 }
@@ -125,6 +123,7 @@ fn generate_encryption_key(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::share::SecretShare;
     use crate::test_utils::MockECDSAIdentityProvider;
     use crate::{crypto, share_split_reconstruct};
 
@@ -137,11 +136,11 @@ mod tests {
         let entropy_seed = b"Hello, world!";
 
         // Generates secret share.
-        let secret_share = crypto::random_mod();
+        let secret_share = SecretShare::from(crypto::random_mod());
 
         // Computes "signing share" and "sub-share".
         let (signing_share, sub_share) =
-            share_split_reconstruct::split(secret_share, &identity_provider);
+            share_split_reconstruct::split(&secret_share, &identity_provider).unwrap();
 
         // Generates encryption share backup.
         let backup_result = backup(entropy_seed, &signing_share, &sub_share, &identity_provider);

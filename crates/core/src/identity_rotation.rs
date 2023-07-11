@@ -7,7 +7,7 @@ use crypto_bigint::U256;
 use crate::crypto::VerifyingKey;
 use crate::errors::{Error, IdentityAuthedRequestError};
 use crate::payloads::{IdentityAuthedRequestPayload, IdentityRotationChallengeResponsePayload};
-use crate::sub_share::{SigningShare, SubShare};
+use crate::share::{SigningShare, SubShare};
 use crate::traits::IdentityProvider;
 use crate::{identity_authed_request, identity_challenge, share_split_reconstruct, wrappers};
 
@@ -73,17 +73,20 @@ pub fn verify_challenge_response(
 }
 
 /// Given the current "signing share", "sub-share" and identity provider, and the new identity provider,
-/// returns the new "signing share" and "sub-share" associated with the new identity provider,
-/// that can be used to reconstruct the current "secret share" given the new identity provider.
+/// returns an `Ok` result wrapping the new "signing share" and "sub-share" associated with the new identity provider,
+/// that can be used to reconstruct the current "secret share" given the new identity provider, or an appropriate `Err` result.
 pub fn rotate_signing_and_sub_share(
     signing_share: &SigningShare,
     sub_share_b: &SubShare,
     current_identity_provider: &impl IdentityProvider,
     new_identity_provider: &impl IdentityProvider,
-) -> (SigningShare, SubShare) {
-    let secret_share =
-        share_split_reconstruct::reconstruct(signing_share, sub_share_b, current_identity_provider);
-    share_split_reconstruct::split(secret_share, new_identity_provider)
+) -> Result<(SigningShare, SubShare), Error> {
+    let secret_share = share_split_reconstruct::reconstruct(
+        signing_share,
+        sub_share_b,
+        current_identity_provider,
+    )?;
+    share_split_reconstruct::split(&secret_share, new_identity_provider)
 }
 
 #[cfg(test)]
@@ -91,6 +94,7 @@ mod tests {
     use super::*;
     use crate::crypto;
     use crate::errors::CryptoError;
+    use crate::share::SecretShare;
     use crate::test_utils::MockECDSAIdentityProvider;
 
     #[test]
@@ -99,11 +103,11 @@ mod tests {
         let current_identity_provider = MockECDSAIdentityProvider::new();
 
         // Generate secret share.
-        let secret_share = crypto::random_mod();
+        let secret_share = SecretShare::from(crypto::random_mod());
 
         // Computes "signing share" and "sub-share".
         let (current_signing_share, current_sub_share_b) =
-            share_split_reconstruct::split(secret_share, &current_identity_provider);
+            share_split_reconstruct::split(&secret_share, &current_identity_provider).unwrap();
 
         // Generates new identity provider.
         let new_identity_provider = MockECDSAIdentityProvider::new();
@@ -182,16 +186,21 @@ mod tests {
             &current_sub_share_b,
             &current_identity_provider,
             &new_identity_provider,
-        );
+        )
+        .unwrap();
 
         // Reconstructs "secret share" from new "signing share", "sub-share" and identity provider.
         let reconstructed_secret_share = share_split_reconstruct::reconstruct(
             &new_signing_share,
             &new_sub_share_b,
             &new_identity_provider,
-        );
+        )
+        .unwrap();
 
         // Verifies reconstructed "secret share".
-        assert_eq!(&reconstructed_secret_share, &secret_share);
+        assert_eq!(
+            &reconstructed_secret_share.as_u256(),
+            &secret_share.as_u256()
+        );
     }
 }
