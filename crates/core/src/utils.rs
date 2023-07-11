@@ -2,6 +2,16 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
+pub const WAMU_MESSAGE_PREFIX: &str = "\x15Wamu Signed Message:\n";
+
+/// Returns prefixed sign-able message bytes for given message.
+pub fn prefixed_message_bytes(message: &[u8]) -> Vec<u8> {
+    let mut result = Vec::with_capacity(WAMU_MESSAGE_PREFIX.len() + message.len());
+    result.extend_from_slice(WAMU_MESSAGE_PREFIX.as_bytes());
+    result.extend_from_slice(message);
+    result
+}
+
 /// Returns the unix timestamp in seconds.
 pub fn unix_timestamp() -> u64 {
     SystemTime::now()

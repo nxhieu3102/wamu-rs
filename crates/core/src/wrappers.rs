@@ -2,26 +2,30 @@
 
 use crypto_bigint::U256;
 
-use crate::crypto;
 use crate::crypto::{Signature, VerifyingKey};
 use crate::errors::{Error, IdentityAuthedRequestError};
 use crate::identity_authed_request;
 use crate::identity_challenge;
 use crate::payloads::IdentityAuthedRequestPayload;
 use crate::traits::IdentityProvider;
+use crate::{crypto, utils};
 
 /// Given random bytes and an identity provider, returns the verifying key and a signature of the random bytes.
+///
+/// **NOTE:** random bytes are prefixed with a predefined phrase before signing.
 pub fn initiate_request_with_signature(
     random_bytes: &[u8],
     identity_provider: &impl IdentityProvider,
 ) -> (VerifyingKey, Signature) {
-    let signature = identity_provider.sign(random_bytes);
+    let signature = identity_provider.sign(&utils::prefixed_message_bytes(random_bytes));
     (identity_provider.verifying_key(), signature)
 }
 
 /// Given random bytes, a verifying key for the sending party, a signature of the random bytes and
 /// a list of verifying keys for the other parties,
 /// returns an ok result for a valid request or an appropriate error result for an invalid request.
+///
+/// **NOTE:** random bytes are prefixed with a predefined phrase before signing.
 pub fn verify_request_with_signature(
     random_bytes: &[u8],
     verifying_key: &VerifyingKey,
@@ -35,7 +39,7 @@ pub fn verify_request_with_signature(
         // Signature must be valid.
         Ok(crypto::verify_signature(
             verifying_key,
-            random_bytes,
+            &utils::prefixed_message_bytes(random_bytes),
             signature,
         )?)
     }

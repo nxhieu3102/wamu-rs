@@ -3,6 +3,8 @@ name = "wamu-core"
 version = "0.1.0"
 edition = "2021"
 description = "A Rust implementation of the core Wamu protocol for building threshold signature wallets controlled by multiple decentralized identities."
+keywords = ["threshold-cryptography", "threshold-signature", "multi-party-computation", "mpc"]
+categories = ["cryptography"]
 
 [dependencies]
 aes-gcm = "0.10.2"

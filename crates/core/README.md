@@ -1,6 +1,8 @@
-# Wamu
+# Wamu Core
 
 A Rust implementation of the core [Wamu protocol](https://wamu.tech/specification) for building [threshold signature](https://academy.binance.com/en/articles/threshold-signatures-explained) wallets controlled by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+
+It implements the core sub-protocols (i.e. share splitting and reconstruction, identity authenticated request initiation and verification, identity challenge, quorum approved request initiation and verification and encrypted backup-based share recovery) as well as types, abstractions and utilities for augmentations (e.g. utilities for initializing and verifying identity rotation, quorum-based share recovery and other decentralized identity authenticated requests) as described by the [Wamu protocol](https://wamu.tech/specification).
 
 **NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
 
@@ -32,7 +34,7 @@ cargo test -p wamu-core
 
 ## License
 
-Licensed under either [MIT](./LICENSE-MIT) or [Apache-2.0](./LICENSE-APACHE) license at your option.
+Licensed under either [MIT](https://github.com/wamutech/wamu-rs/tree/master/crates/core/LICENSE-MIT) or [Apache-2.0](https://github.com/wamutech/wamu-rs/tree/master/crates/core/LICENSE-APACHE) license at your option.
 
 ## Contribution
 

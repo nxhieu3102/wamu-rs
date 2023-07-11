@@ -5,10 +5,10 @@
 use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{Encoding, U256};
 
-use crate::crypto;
 use crate::crypto::{Secp256k1Order, Signature, VerifyingKey};
 use crate::errors::CryptoError;
 use crate::traits::IdentityProvider;
+use crate::{crypto, utils};
 
 /// Returns a challenge fragment for initiating an identity challenge.
 ///
@@ -45,13 +45,15 @@ pub fn verify(
 }
 
 /// Returns sign-able message bytes for the identity challenge fragments.
-fn challenge_message_bytes(challenge_fragments: &[U256]) -> [u8; 32] {
-    challenge_fragments
-        .iter()
-        .fold(U256::ZERO, |acc, n| {
-            acc.add_mod(n, &Secp256k1Order::MODULUS)
-        })
-        .to_be_bytes()
+fn challenge_message_bytes(challenge_fragments: &[U256]) -> Vec<u8> {
+    utils::prefixed_message_bytes(
+        &challenge_fragments
+            .iter()
+            .fold(U256::ZERO, |acc, n| {
+                acc.add_mod(n, &Secp256k1Order::MODULUS)
+            })
+            .to_be_bytes(),
+    )
 }
 
 #[cfg(test)]

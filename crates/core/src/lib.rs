@@ -21,7 +21,6 @@ pub mod identity_rotation;
 mod payloads;
 pub mod quorum_approved_request;
 pub mod share_recovery_backup;
-pub mod share_recovery_quorum;
 pub mod share_split_reconstruct;
 mod sub_share;
 mod test_utils;

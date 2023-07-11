@@ -10,7 +10,7 @@ use crate::payloads::{
     CommandApprovalPayload, IdentityAuthedRequestPayload, QuorumApprovedChallengeResponsePayload,
 };
 use crate::traits::IdentityProvider;
-use crate::{crypto, identity_authed_request, identity_challenge, wrappers};
+use crate::{crypto, identity_authed_request, identity_challenge, utils, wrappers};
 
 /// Given a "command" and an identity provider, returns the payload for initiating an quorum approved request.
 pub fn initiate(
@@ -153,7 +153,9 @@ fn command_approval_message_bytes(
     command: &str,
     timestamp: u64,
 ) -> Vec<u8> {
-    format!("{}|{}|{}", challenge_fragment, command, timestamp).into_bytes()
+    utils::prefixed_message_bytes(
+        format!("{}{}{}", challenge_fragment, command, timestamp).as_bytes(),
+    )
 }
 
 /// Given a list of command approval payloads and an identity provider, returns a list of wrapped challenge fragments.
