@@ -91,8 +91,9 @@ pub enum SignatureEncoding {
 /// Generates a cryptographically secure random `U256` which is less than the order of the `Secp256k1` elliptic curve.
 pub fn random_mod() -> U256 {
     let mut rng = rand::thread_rng();
-    let modulus = NonZero::new(Secp256k1Order::MODULUS)
-        .expect("The order of the `Secp256k1` curve should be non-zero");
+
+    // The order of the `Secp256k1` curve should be non-zero.
+    let modulus = NonZero::new(Secp256k1Order::MODULUS).unwrap();
     U256::random_mod(&mut rng, &modulus)
 }
 

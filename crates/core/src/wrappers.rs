@@ -17,7 +17,7 @@ pub fn initiate_request_with_signature(
     random_bytes: &[u8],
     identity_provider: &impl IdentityProvider,
 ) -> (VerifyingKey, Signature) {
-    let signature = identity_provider.sign(&utils::prefixed_message_bytes(random_bytes));
+    let signature = identity_provider.sign(&utils::prefix_message_bytes(random_bytes));
     (identity_provider.verifying_key(), signature)
 }
 
@@ -39,7 +39,7 @@ pub fn verify_request_with_signature(
         // Signature must be valid.
         Ok(crypto::verify_signature(
             verifying_key,
-            &utils::prefixed_message_bytes(random_bytes),
+            &utils::prefix_message_bytes(random_bytes),
             signature,
         )?)
     }

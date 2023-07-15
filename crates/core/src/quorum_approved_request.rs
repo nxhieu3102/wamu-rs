@@ -153,7 +153,7 @@ fn command_approval_message_bytes(
     command: &str,
     timestamp: u64,
 ) -> Vec<u8> {
-    utils::prefixed_message_bytes(
+    utils::prefix_message_bytes(
         format!("{}{}{}", challenge_fragment, command, timestamp).as_bytes(),
     )
 }

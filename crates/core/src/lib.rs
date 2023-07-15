@@ -25,5 +25,5 @@ pub mod share_recovery_backup;
 pub mod share_split_reconstruct;
 mod test_utils;
 mod traits;
-mod utils;
+pub mod utils;
 pub mod wrappers;

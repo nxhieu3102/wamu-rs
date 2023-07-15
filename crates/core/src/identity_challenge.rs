@@ -46,7 +46,7 @@ pub fn verify(
 
 /// Returns sign-able message bytes for the identity challenge fragments.
 fn challenge_message_bytes(challenge_fragments: &[U256]) -> Vec<u8> {
-    utils::prefixed_message_bytes(
+    utils::prefix_message_bytes(
         &challenge_fragments
             .iter()
             .fold(U256::ZERO, |acc, n| {

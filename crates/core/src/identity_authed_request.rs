@@ -63,7 +63,7 @@ pub fn verify(
 
 /// Returns sign-able message bytes for the command and timestamp.
 fn command_message_bytes(command: &str, timestamp: u64) -> Vec<u8> {
-    utils::prefixed_message_bytes(format!("{}{}", command, timestamp).as_bytes())
+    utils::prefix_message_bytes(format!("{}{}", command, timestamp).as_bytes())
 }
 
 #[cfg(test)]

@@ -63,17 +63,25 @@ pub enum IdentityAuthedRequestError {
     Unauthorized(Error),
 }
 
-impl From<Error> for IdentityAuthedRequestError {
-    fn from(error: Error) -> Self {
-        Self::Unauthorized(error)
-    }
+/// Implements `From<Error>` and `From<CryptoError>` for the error type.
+macro_rules! impl_from_error {
+    ($error_type:path) => {
+        impl From<Error> for $error_type {
+            fn from(error: Error) -> Self {
+                Self::Unauthorized(error)
+            }
+        }
+
+        impl From<CryptoError> for $error_type {
+            fn from(error: CryptoError) -> Self {
+                Self::Unauthorized(Error::Crypto(error))
+            }
+        }
+    };
 }
 
-impl From<CryptoError> for IdentityAuthedRequestError {
-    fn from(error: CryptoError) -> Self {
-        Self::Unauthorized(Error::Crypto(error))
-    }
-}
+// Implements `From<Error>` and `From<CryptoError>` for `IdentityAuthedRequestError`.
+impl_from_error!(IdentityAuthedRequestError);
 
 /// An identity authenticated request verification error.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -84,17 +92,8 @@ pub enum QuorumApprovedRequestError {
     Unauthorized(Error),
 }
 
-impl From<Error> for QuorumApprovedRequestError {
-    fn from(error: Error) -> Self {
-        Self::Unauthorized(error)
-    }
-}
-
-impl From<CryptoError> for QuorumApprovedRequestError {
-    fn from(error: CryptoError) -> Self {
-        Self::Unauthorized(Error::Crypto(error))
-    }
-}
+// Implements `From<Error>` and `From<CryptoError>` for `QuorumApprovedRequestError`.
+impl_from_error!(QuorumApprovedRequestError);
 
 /// A share backup or recovery error.
 #[derive(Debug)]
