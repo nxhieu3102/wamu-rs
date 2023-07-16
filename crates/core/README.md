@@ -34,7 +34,7 @@ cargo test -p wamu-core
 
 ## License
 
-Licensed under either [MIT](https://github.com/wamutech/wamu-rs/tree/master/crates/core/LICENSE-MIT) or [Apache-2.0](https://github.com/wamutech/wamu-rs/tree/master/crates/core/LICENSE-APACHE) license at your option.
+Licensed under either [MIT](https://github.com/wamutech/wamu-rs/tree/master/LICENSE-MIT) or [Apache-2.0](https://github.com/wamutech/wamu-rs/tree/master/LICENSE-APACHE) license at your option.
 
 ## Contribution
 
