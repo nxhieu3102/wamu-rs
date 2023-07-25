@@ -123,20 +123,21 @@ fn generate_encryption_key(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto::RandomBytes;
     use crate::share::SecretShare;
+    use crate::share_split_reconstruct;
     use crate::test_utils::MockECDSAIdentityProvider;
-    use crate::{crypto, share_split_reconstruct};
 
     #[test]
     fn share_recovery_with_encrypted_backup_works() {
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Set entropy seed.
         let entropy_seed = b"Hello, world!";
 
         // Generates secret share.
-        let secret_share = SecretShare::from(crypto::random_mod());
+        let secret_share = SecretShare::from(RandomBytes::generate_mod_q().as_u256());
 
         // Computes "signing share" and "sub-share".
         let (signing_share, sub_share) =
@@ -171,7 +172,7 @@ mod tests {
     #[test]
     fn generate_encryption_key_works() {
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Set entropy seed.
         let entropy_seed = b"Hello, world!";
@@ -188,7 +189,7 @@ mod tests {
         // Verifies that different inputs (entropy seed and identity provider) permutations produce different encryption keys.
         assert_ne!(
             encryption_key,
-            generate_encryption_key(entropy_seed, &MockECDSAIdentityProvider::new())
+            generate_encryption_key(entropy_seed, &MockECDSAIdentityProvider::generate())
         );
         assert_ne!(
             encryption_key,

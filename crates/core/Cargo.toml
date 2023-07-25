@@ -20,3 +20,12 @@ k256 = "0.13.1"
 rand = "0.8.5"
 sha2 = "0.10.7"
 zeroize = { version = "1.6.0", features = ["alloc", "zeroize_derive"] }
+
+[features]
+default = []
+# Exposes utilities for testing.
+dev = []
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "doc_cfg"]

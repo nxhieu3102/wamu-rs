@@ -174,11 +174,12 @@ mod tests {
     #[test]
     fn quorum_approved_request_initiation_and_verification_works() {
         // Generates current identity provider.
-        let initiator_identity_provider = MockECDSAIdentityProvider::new();
+        let initiator_identity_provider = MockECDSAIdentityProvider::generate();
 
-        // Verifies quorum approved request and initiates challenge.
-        let approver_identity_providers: Vec<MockECDSAIdentityProvider> =
-            (0..5).map(|_| MockECDSAIdentityProvider::new()).collect();
+        // Creates identity providers for all other parties.
+        let approver_identity_providers: Vec<MockECDSAIdentityProvider> = (0..5)
+            .map(|_| MockECDSAIdentityProvider::generate())
+            .collect();
 
         // Sets quorum.
         let quorum_size = 5;
@@ -240,7 +241,7 @@ mod tests {
             ),
             // Challenge response from the wrong signer should be rejected.
             (
-                &MockECDSAIdentityProvider::new(),
+                &MockECDSAIdentityProvider::generate(),
                 &approvals,
                 quorum_size,
                 Err(QuorumApprovedRequestError::Unauthorized(Error::Crypto(

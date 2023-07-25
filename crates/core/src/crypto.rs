@@ -1,7 +1,8 @@
 //! Types, abstractions and utilities for lower-level cryptography.
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
-use crypto_bigint::{impl_modulus, NonZero, RandomMod, U256};
+use crypto_bigint::{impl_modulus, Encoding, NonZero, Random, RandomMod, U256};
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 use crate::errors::CryptoError;
 
@@ -13,6 +14,85 @@ impl_modulus!(
     U256,
     "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141"
 );
+
+/// A convenience wrapper for generating and encoding/decoding cryptographically secure random values.
+#[derive(Zeroize, ZeroizeOnDrop)]
+pub struct RandomBytes(U256);
+
+impl RandomBytes {
+    /// Generates a cryptographically secure random value.
+    pub fn generate() -> Self {
+        let mut rng = rand::thread_rng();
+        Self(U256::random(&mut rng))
+    }
+
+    /// Generates a cryptographically secure random value which is less than the order of the `Secp256k1` elliptic curve.
+    pub fn generate_mod_q() -> Self {
+        let mut rng = rand::thread_rng();
+
+        // The order of the `Secp256k1` curve should be non-zero.
+        let modulus = NonZero::new(Secp256k1Order::MODULUS).unwrap();
+        Self(U256::random_mod(&mut rng, &modulus))
+    }
+
+    /// Returns the underlying `U256` random value.
+    pub fn as_u256(&self) -> U256 {
+        self.0
+    }
+
+    /// Returns 32 bytes representation of the "secret share".
+    pub fn to_be_bytes(&self) -> [u8; 32] {
+        self.0.to_be_bytes()
+    }
+}
+
+/// Returns an `Ok` result for valid signature for the message, or an appropriate `Err` result otherwise.
+pub fn verify_signature(
+    verifying_key: &VerifyingKey,
+    msg: &[u8],
+    signature: &Signature,
+) -> Result<(), CryptoError> {
+    if (verifying_key.algo, verifying_key.curve) != (signature.algo, signature.curve) {
+        // Signature algorithm and elliptic curve for the verifying key and signature should match.
+        Err(CryptoError::SchemeMismatch)
+    } else {
+        // Matches signature scheme (algorithm + curve).
+        match (verifying_key.algo, verifying_key.curve) {
+            // Verifies ECDSA/Secp256k1 signatures.
+            // SEC1 encoded verifying key and SHA-256 digest and DER encoded signature.
+            (SignatureAlgorithm::ECDSA, EllipticCurve::Secp256k1) => {
+                // Matches the message digest/hash function.
+                match signature.hash {
+                    // Verifies ECDSA/Secp256k1/SHA-256 signatures.
+                    MessageDigest::SHA256 => {
+                        // Matches verifying key and signature encoding.
+                        match (verifying_key.enc, signature.enc) {
+                            // Verifies DER encoded ECDSA/Secp256k1/SHA-256 signatures with SEC1 encoded verifying key.
+                            (KeyEncoding::SEC1, SignatureEncoding::DER) => {
+                                // Deserialize verifying key.
+                                // `k256::ecdsa::VerifyingKey` uses `Secp256k1` and `SHA-256`.
+                                let ver_key =
+                                    k256::ecdsa::VerifyingKey::from_sec1_bytes(&verifying_key.key);
+                                // Deserialize signature.
+                                let sig = k256::ecdsa::Signature::from_der(&signature.sig)
+                                    .map_err(|_| CryptoError::InvalidSignature)?;
+                                // Verify ECDSA/Secp256k1/SHA-256 signature.
+                                use k256::ecdsa::signature::Verifier;
+                                ver_key
+                                    .map_err(|_| CryptoError::InvalidVerifyingKey)?
+                                    .verify(msg, &sig)
+                                    .map_err(|_| CryptoError::InvalidSignature)
+                            }
+                            _ => Err(CryptoError::UnsupportedEncoding),
+                        }
+                    }
+                    _ => Err(CryptoError::UnsupportedDigest),
+                }
+            }
+            _ => Err(CryptoError::UnsupportedScheme),
+        }
+    }
+}
 
 /// A verifying key (e.g an ECDSA/secp256k1 public key).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -86,61 +166,4 @@ pub enum SignatureEncoding {
     DER,
     /// Ref: <https://ethereum.org/en/developers/docs/data-structures-and-encoding/rlp/>.
     RLP,
-}
-
-/// Generates a cryptographically secure random `U256` which is less than the order of the `Secp256k1` elliptic curve.
-pub fn random_mod() -> U256 {
-    let mut rng = rand::thread_rng();
-
-    // The order of the `Secp256k1` curve should be non-zero.
-    let modulus = NonZero::new(Secp256k1Order::MODULUS).unwrap();
-    U256::random_mod(&mut rng, &modulus)
-}
-
-/// Returns an `Ok` result for valid signature for the message, or an appropriate `Err` result otherwise.
-pub fn verify_signature(
-    verifying_key: &VerifyingKey,
-    msg: &[u8],
-    signature: &Signature,
-) -> Result<(), CryptoError> {
-    if (verifying_key.algo, verifying_key.curve) != (signature.algo, signature.curve) {
-        // Signature algorithm and elliptic curve for the verifying key and signature should match.
-        Err(CryptoError::SchemeMismatch)
-    } else {
-        // Matches signature scheme (algorithm + curve).
-        match (verifying_key.algo, verifying_key.curve) {
-            // Verifies ECDSA/Secp256k1 signatures.
-            // SEC1 encoded verifying key and SHA-256 digest and DER encoded signature.
-            (SignatureAlgorithm::ECDSA, EllipticCurve::Secp256k1) => {
-                // Matches the message digest/hash function.
-                match signature.hash {
-                    // Verifies ECDSA/Secp256k1/SHA-256 signatures.
-                    MessageDigest::SHA256 => {
-                        // Matches verifying key and signature encoding.
-                        match (verifying_key.enc, signature.enc) {
-                            // Verifies DER encoded ECDSA/Secp256k1/SHA-256 signatures with SEC1 encoded verifying key.
-                            (KeyEncoding::SEC1, SignatureEncoding::DER) => {
-                                // Deserialize verifying key.
-                                // `k256::ecdsa::VerifyingKey` uses `Secp256k1` and `SHA-256`.
-                                let ver_key =
-                                    k256::ecdsa::VerifyingKey::from_sec1_bytes(&verifying_key.key);
-                                // Deserialize signature.
-                                let sig = k256::ecdsa::Signature::from_der(&signature.sig)
-                                    .map_err(|_| CryptoError::InvalidSignature)?;
-                                // Verify ECDSA/Secp256k1/SHA-256 signature.
-                                use k256::ecdsa::signature::Verifier;
-                                ver_key
-                                    .map_err(|_| CryptoError::InvalidVerifyingKey)?
-                                    .verify(msg, &sig)
-                                    .map_err(|_| CryptoError::InvalidSignature)
-                            }
-                            _ => Err(CryptoError::UnsupportedEncoding),
-                        }
-                    }
-                    _ => Err(CryptoError::UnsupportedDigest),
-                }
-            }
-            _ => Err(CryptoError::UnsupportedScheme),
-        }
-    }
 }

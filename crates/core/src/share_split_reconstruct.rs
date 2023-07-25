@@ -17,7 +17,7 @@ pub fn split(
     identity_provider: &impl IdentityProvider,
 ) -> Result<(SigningShare, SubShare), Error> {
     // Generates "signing share".
-    let signing_share = SigningShare::new();
+    let signing_share = SigningShare::generate();
 
     // Computes "sub-share" a from "signing share".
     let (r, s) = identity_provider.sign_message_share(&signing_share.to_be_bytes());
@@ -59,16 +59,16 @@ pub fn reconstruct(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto;
+    use crate::crypto::RandomBytes;
     use crate::test_utils::MockECDSAIdentityProvider;
 
     #[test]
     fn share_splitting_and_reconstruction_works() {
         // Generates secret share.
-        let secret_share = SecretShare::from(crypto::random_mod());
+        let secret_share = SecretShare::from(RandomBytes::generate_mod_q().as_u256());
 
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Computes "signing share" and "sub-share".
         let (signing_share, sub_share_b) = split(&secret_share, &identity_provider).unwrap();

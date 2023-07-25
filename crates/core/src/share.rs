@@ -4,8 +4,7 @@ use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{const_residue, Encoding, U256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::crypto;
-use crate::crypto::Secp256k1Order;
+use crate::crypto::{RandomBytes, Secp256k1Order};
 use crate::errors::{ArithmeticError, Error};
 
 /// A "secret share" as defined by the Wamu protocol.
@@ -55,9 +54,8 @@ pub struct SigningShare([u8; 32]);
 
 impl SigningShare {
     /// Generates a new "signing share" as a random 256 bit unsigned integer.
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
-        Self(crypto::random_mod().to_be_bytes())
+    pub fn generate() -> Self {
+        Self(RandomBytes::generate().to_be_bytes())
     }
 
     /// Returns underlying 32 bytes for "signing share".

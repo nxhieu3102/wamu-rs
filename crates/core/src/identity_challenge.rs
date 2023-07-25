@@ -2,10 +2,9 @@
 //!
 //! Ref: <https://wamu.tech/specification#identity-challenge>.
 
-use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{Encoding, U256};
 
-use crate::crypto::{Secp256k1Order, Signature, VerifyingKey};
+use crate::crypto::{RandomBytes, Signature, VerifyingKey};
 use crate::errors::CryptoError;
 use crate::traits::IdentityProvider;
 use crate::{crypto, utils};
@@ -14,7 +13,7 @@ use crate::{crypto, utils};
 ///
 /// Ref: <https://wamu.tech/specification#identity-challenge-initiation>.
 pub fn initiate() -> U256 {
-    crypto::random_mod()
+    RandomBytes::generate().as_u256()
 }
 
 /// Given a list of identity challenge fragments and an identity provider, returns the response signature for an identity challenge.
@@ -46,14 +45,16 @@ pub fn verify(
 
 /// Returns sign-able message bytes for the identity challenge fragments.
 fn challenge_message_bytes(challenge_fragments: &[U256]) -> Vec<u8> {
-    utils::prefix_message_bytes(
-        &challenge_fragments
-            .iter()
-            .fold(U256::ZERO, |acc, n| {
-                acc.add_mod(n, &Secp256k1Order::MODULUS)
-            })
-            .to_be_bytes(),
-    )
+    // Sort the challenge fragments so that we always get the same challenge regardless of order of receiving challenges.
+    let mut sorted_challenge_fragments = challenge_fragments.to_owned();
+    sorted_challenge_fragments.sort();
+    utils::prefix_message_bytes(&sorted_challenge_fragments.iter().fold(
+        Vec::<u8>::new(),
+        |mut acc, n| {
+            acc.append(&mut n.to_be_bytes().to_vec());
+            acc
+        },
+    ))
 }
 
 #[cfg(test)]
@@ -64,7 +65,7 @@ mod tests {
     #[test]
     fn identity_challenge_works() {
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generates identity challenge fragments.
         let challenge_fragments: Vec<U256> = (0..5).map(|_| initiate()).collect();
@@ -79,7 +80,7 @@ mod tests {
             ),
             // Response from the wrong signer should be rejected.
             (
-                &MockECDSAIdentityProvider::new(),
+                &MockECDSAIdentityProvider::generate(),
                 &challenge_fragments,
                 &challenge_fragments,
                 Err(CryptoError::InvalidSignature),

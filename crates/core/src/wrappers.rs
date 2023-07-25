@@ -71,7 +71,7 @@ mod tests {
     #[test]
     fn initiate_and_verify_request_with_signature_works() {
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Sets the random bytes.
         let random_bytes = b"random";

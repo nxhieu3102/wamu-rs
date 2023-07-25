@@ -75,7 +75,7 @@ mod test {
     #[test]
     fn identity_authed_request_initiation_and_verification_works() {
         // Generates identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generates identity authenticated request payload.
         let payload = initiate("command", &identity_provider);

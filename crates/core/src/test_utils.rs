@@ -1,23 +1,22 @@
 //! Test utilities.
 
-#![cfg(test)]
-
 use k256::ecdsa::{signature::Signer, SigningKey};
 
 use crate::crypto::{
     EllipticCurve, KeyEncoding, MessageDigest, Signature, SignatureAlgorithm, SignatureEncoding,
     VerifyingKey,
 };
-use crate::{crypto, IdentityProvider};
+use crate::IdentityProvider;
 
 /// A mock ECDSA/Secp256k1/SHA-256 based identity provider.
+#[derive(Debug, Clone)]
 pub struct MockECDSAIdentityProvider {
     secret: SigningKey,
 }
 
 impl MockECDSAIdentityProvider {
-    /// Creates an ECDSA/Secp256k1/SHA-256 signing key.
-    pub fn new() -> Self {
+    /// Generates an ECDSA/Secp256k1/SHA-256 signing key.
+    pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
         Self {
             // `k256::ecdsa::SigningKey` uses `Secp256k1` and `SHA-256`.
@@ -65,6 +64,7 @@ impl IdentityProvider for MockECDSAIdentityProvider {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::crypto;
 
     #[test]
     fn local_identity_provider_works() {
@@ -72,7 +72,7 @@ mod tests {
         let msg = b"Hello, world!";
 
         // Generate identity provider.
-        let identity_provider = MockECDSAIdentityProvider::new();
+        let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Signing.
         let signature = identity_provider.sign(msg);

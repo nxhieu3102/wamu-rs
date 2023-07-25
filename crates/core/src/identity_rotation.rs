@@ -92,7 +92,7 @@ pub fn rotate_signing_and_sub_share(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto;
+    use crate::crypto::RandomBytes;
     use crate::errors::CryptoError;
     use crate::share::SecretShare;
     use crate::test_utils::MockECDSAIdentityProvider;
@@ -100,17 +100,17 @@ mod tests {
     #[test]
     fn identity_rotation_works() {
         // Generates current identity provider.
-        let current_identity_provider = MockECDSAIdentityProvider::new();
+        let current_identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generate secret share.
-        let secret_share = SecretShare::from(crypto::random_mod());
+        let secret_share = SecretShare::from(RandomBytes::generate().as_u256());
 
         // Computes "signing share" and "sub-share".
         let (current_signing_share, current_sub_share_b) =
             share_split_reconstruct::split(&secret_share, &current_identity_provider).unwrap();
 
         // Generates new identity provider.
-        let new_identity_provider = MockECDSAIdentityProvider::new();
+        let new_identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generates identity rotation request payload.
         let init_payload = initiate(&current_identity_provider);
@@ -149,7 +149,7 @@ mod tests {
             ),
             // Challenge response from the wrong signer should be rejected.
             (
-                &MockECDSAIdentityProvider::new(),
+                &MockECDSAIdentityProvider::generate(),
                 &challenge_fragments,
                 &challenge_fragments,
                 Err(Error::Crypto(CryptoError::InvalidSignature)),
