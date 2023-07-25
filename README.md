@@ -1,18 +1,34 @@
 # Wamu
 
-A collection of modular Rust libraries for implementing the [Wamu protocol](https://wamu.tech/specification) for building [threshold signature](https://academy.binance.com/en/articles/threshold-signatures-explained) wallets controlled by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+A collection of modular [Rust](https://www.rust-lang.org/) libraries for implementing the [Wamu protocol](https://wamu.tech/specification) for building [threshold signature](https://academy.binance.com/en/articles/threshold-signatures-explained) wallets controlled by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
 **NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
+
+## Architecture
+
+This repository contains 2 main crates:
+
+### 1. [Wamu Core (wamu-core)](/crates/core)
+
+This crate implements the core sub-protocols (i.e. share splitting and reconstruction, identity authenticated request initiation and verification, identity challenge, quorum approved request initiation and verification and encrypted backup-based share recovery) as well as types, abstractions and utilities for augmentations (e.g. utilities for initializing and verifying identity rotation, quorum-based share recovery and other decentralized identity authenticated requests) as described by the [Wamu protocol](https://wamu.tech/specification).
+
+### 2. [Wamu CGGMP (wamu-cggmp)](/crates/cggmp)
+
+This crate implements [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with augmentations as described by the [Wamu protocol](https://wamu.tech/specification).
+
+It uses the [Wamu Core (wamu-core)](/crates/core) crate for [Wamu](https://wamu.tech/specification)'s core sub-protocols and augmentations, and [Webb tool's cggmp-threshold-ecdsa](https://github.com/webb-tools/cggmp-threshold-ecdsa) crate for the [CGGMP20](https://eprint.iacr.org/2021/060.pdf) implementation that it wraps and augments.
 
 ## Installation and Usage
 
 Check the readme of each crate for installation and usage instructions and links to documentation.
 
 - Wamu Core (wamu-core): [/crates/core](/crates/core)
+- Wamu CGGMP (wamu-cggmp): [/crates/cggmp](/crates/cggmp)
 
 ## Documentation
 
 - Wamu Core ([wamu-core](/crates/core)): [https://docs.rs/wamu-core/latest/wamu_core/](https://docs.rs/wamu-core/latest/wamu_core/)
+- Wamu CGGMP ([wamu-cggmp](/crates/cggmp)): [https://docs.rs/wamu-cggmp/latest/wamu_cggmp/](https://docs.rs/wamu-cggmp/latest/wamu_cggmp/)
 
 Or you can access documentation locally by running the following command from the project root
 
@@ -37,15 +53,17 @@ cargo test -p wamu-core
 
 ## License
 
-| Crate                                 | License                                                                                                                    |
-|---------------------------------------|----------------------------------------------------------------------------------------------------------------------------|
-| Wamu Core ([wamu-core](/crates/core)) | Licensed under either [MIT](/crates/core/LICENSE-MIT) or [Apache-2.0](/crates/core/LICENSE-APACHE) license at your option. |
+| Crate                                   | License                                                                                            |
+|-----------------------------------------|----------------------------------------------------------------------------------------------------|
+| Wamu Core ([wamu-core](/crates/core))   | Licensed under either [MIT](/LICENSE-MIT) or [Apache-2.0](/LICENSE-APACHE) license at your option. |
+| Wamu CGGMP ([wamu-cggmp](/crates/cggmp) | Licensed under [GPL-3.0](/LICENSE-GPL).                                                            |
 
 ## Contribution
 
-| Crate                                 | Guidelines                                                                                                                                                                                                                           |
-|---------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Wamu Core ([wamu-core](/crates/core)) | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions. |
+| Crate                                    | Guidelines                                                                                                                                                                                                                           |
+|------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Wamu Core ([wamu-core](/crates/core))    | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions. |
+| Wamu CGGMP ([wamu-cggmp](/crates/cggmp)) | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the GPL-3.0 license, shall be dual licensed as above, without any additional terms or conditions.    |
 
 ## Acknowledgements
 
