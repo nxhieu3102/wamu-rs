@@ -4,6 +4,12 @@ A Rust implementation of [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with au
 
 It uses the [Wamu Core (wamu-core)](https://github.com/wamutech/wamu-rs/tree/master/crates/core) crate for [Wamu](https://wamu.tech/specification)'s core sub-protocols and augmentations, and [Webb tool's cggmp-threshold-ecdsa](https://github.com/webb-tools/cggmp-threshold-ecdsa) crate for the [CGGMP20](https://eprint.iacr.org/2021/060.pdf) implementation that it wraps and augments.
 
+## ⚠️ Security Warning
+
+**This crate is pre-alpha software developed as a PoC (Proof of Concept) for the [Wamu protocol](https://wamu.tech/specification).
+It has NOT been independently audited and/or rigorously tested yet!
+It SHOULD NOT BE USED IN PRODUCTION!**
+
 **NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
 
 ## Installation

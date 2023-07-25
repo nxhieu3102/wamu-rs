@@ -4,6 +4,12 @@ A Rust implementation of the core [Wamu protocol](https://wamu.tech/specificatio
 
 It implements the core sub-protocols (i.e. share splitting and reconstruction, identity authenticated request initiation and verification, identity challenge, quorum approved request initiation and verification and encrypted backup-based share recovery) as well as types, abstractions and utilities for augmentations (e.g. utilities for initializing and verifying identity rotation, quorum-based share recovery and other decentralized identity authenticated requests) as described by the [Wamu protocol](https://wamu.tech/specification).
 
+## ⚠️ Security Warning
+
+**This crate is pre-alpha software developed as a PoC (Proof of Concept) for the [Wamu protocol](https://wamu.tech/specification).
+It has NOT been independently audited and/or rigorously tested yet!
+It SHOULD NOT BE USED IN PRODUCTION!**
+
 **NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
 
 ## Installation
