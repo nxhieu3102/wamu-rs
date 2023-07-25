@@ -274,6 +274,7 @@ pub mod tests {
     fn generate_pre_sign_input(
         aug_keys: &[AugmentedType<LocalKey<Secp256k1>, SubShareOutput>],
         identity_providers: &[MockECDSAIdentityProvider],
+        n_participants: u16,
     ) -> Vec<(
         SSID<Secp256k1>,
         PreSigningSecrets,
@@ -285,7 +286,7 @@ pub mod tests {
         let mut aux_ring_pedersen_n_hat_values = HashMap::with_capacity(aug_keys.len());
         let mut aux_ring_pedersen_s_values = HashMap::with_capacity(aug_keys.len());
         let mut aux_ring_pedersen_t_values = HashMap::with_capacity(aug_keys.len());
-        for idx in 1..=aug_keys.len() as u16 {
+        for idx in 1..=n_participants as u16 {
             let (ring_pedersen_params, _) = RingPedersenStatement::<Secp256k1, Sha256>::generate();
             aux_ring_pedersen_n_hat_values.insert(idx, ring_pedersen_params.N);
             aux_ring_pedersen_s_values.insert(idx, ring_pedersen_params.S);
@@ -294,8 +295,8 @@ pub mod tests {
         // Reconstructs secret shares, creates pre-signing inputs and auxiliary parameters for ZK proofs.
         let generator = Point::<Secp256k1>::generator().to_point();
         let group_order = Scalar::<Secp256k1>::group_order();
-        let party_indices: Vec<u16> = (1..=aug_keys.len() as u16).collect();
-        aug_keys
+        let party_indices: Vec<u16> = (1..=n_participants as u16).collect();
+        aug_keys[0..n_participants as usize]
             .iter()
             .enumerate()
             .map(|(i, aug_key)| {
@@ -353,146 +354,169 @@ pub mod tests {
             .collect()
     }
 
-    #[test]
-    fn sign_works() {
-        // Iterates over parameters for creating test cases with different thresholds and number of parties.
-        // NOTE: Quorum size = threshold + 1
-        for (threshold, n_parties) in [
-            // 2/2 signing keys.
-            (1, 2),
-            // 3/4 signing keys.
-            (2, 4),
-        ] {
-            // Runs key gen simulation for test parameters.
-            let (aug_keys, identity_providers) = simulate_key_gen(threshold, n_parties);
-            // Verifies that we got enough keys and identities for "existing" parties from keygen.
-            assert_eq!(aug_keys.len(), identity_providers.len());
-            assert_eq!(aug_keys.len(), n_parties as usize);
+    // NOTE: Quorum size = threshold + 1
+    fn generate_parties_and_simulate_signing(threshold: u16, n_parties: u16, n_participants: u16) {
+        // Verifies parameter invariants.
+        assert!(threshold >= 1, "minimum threshold is one");
+        assert!(
+            n_parties > threshold,
+            "threshold must be less than the total number of parties"
+        );
+        assert!(
+            n_participants > threshold,
+            "number of participants must be a valid quorum, quorum size = threshold + 1"
+        );
+        assert!(
+            n_parties >= n_participants,
+            "number of participants must be less than or equal to the total number of parties"
+        );
 
-            // Extracts and verifies the shared secret key.
-            let secret_shares: Vec<Scalar<Secp256k1>> = aug_keys
-                .iter()
-                .enumerate()
-                .map(|(idx, it)| {
-                    let (signing_share, sub_share) = it.extra.as_ref().unwrap();
-                    Scalar::<Secp256k1>::from_bytes(
-                        &wamu_core::share_split_reconstruct::reconstruct(
-                            signing_share,
-                            sub_share,
-                            &identity_providers[idx],
-                        )
+        // Runs key gen simulation for test parameters.
+        let (aug_keys, identity_providers) = simulate_key_gen(threshold, n_parties);
+        // Verifies that we got enough keys and identities for "existing" parties from keygen.
+        assert_eq!(aug_keys.len(), identity_providers.len());
+        assert_eq!(aug_keys.len(), n_parties as usize);
+
+        // Extracts and verifies the shared secret key.
+        let secret_shares: Vec<Scalar<Secp256k1>> = aug_keys
+            .iter()
+            .enumerate()
+            .map(|(idx, it)| {
+                let (signing_share, sub_share) = it.extra.as_ref().unwrap();
+                Scalar::<Secp256k1>::from_bytes(
+                    &wamu_core::share_split_reconstruct::reconstruct(
+                        signing_share,
+                        sub_share,
+                        &identity_providers[idx],
+                    )
                         .unwrap()
                         .to_be_bytes(),
-                    )
+                )
                     .unwrap()
-                })
-                .collect();
-            let sec_key = aug_keys[0].base.vss_scheme.reconstruct(
-                &(0..n_parties).collect::<Vec<u16>>(),
-                &secret_shares.clone(),
-            );
-            let pub_key = aug_keys[0].base.public_key();
-            assert_eq!(Point::<Secp256k1>::generator() * &sec_key, pub_key);
+            })
+            .collect();
+        let sec_key = aug_keys[0].base.vss_scheme.reconstruct(
+            &(0..n_parties).collect::<Vec<u16>>(),
+            &secret_shares.clone(),
+        );
+        let pub_key = aug_keys[0].base.public_key();
+        assert_eq!(Point::<Secp256k1>::generator() * &sec_key, pub_key);
 
-            // Verifies that transforming of x_i, which is a (t,n) share of x, into a (t,t+1) share omega_i using
-            // an appropriate lagrangian coefficient lambda_{i,S} as defined by GG18 and GG20 works.
-            // Ref: https://eprint.iacr.org/2021/060.pdf (Section 1.2.8)
-            // Ref: https://eprint.iacr.org/2019/114.pdf (Section 4.2)
-            // Ref: https://eprint.iacr.org/2020/540.pdf (Section 3.2)
-            let omega_shares: Vec<Scalar<Secp256k1>> = aug_keys
+        // Verifies that transforming of x_i, which is a (t,n) share of x, into a (t,t+1) share omega_i using
+        // an appropriate lagrangian coefficient lambda_{i,S} as defined by GG18 and GG20 works.
+        // Ref: https://eprint.iacr.org/2021/060.pdf (Section 1.2.8)
+        // Ref: https://eprint.iacr.org/2019/114.pdf (Section 4.2)
+        // Ref: https://eprint.iacr.org/2020/540.pdf (Section 3.2)
+        let omega_shares: Vec<Scalar<Secp256k1>> = aug_keys[0..n_participants as usize]
+            .iter()
+            .enumerate()
+            .map(|(idx, it)| {
+                let x_i = secret_shares[idx].clone();
+                let lambda_i_s = VerifiableSS::<Secp256k1, Sha256>::map_share_to_new_params(
+                    &it.base.vss_scheme.parameters,
+                    it.base.i - 1,
+                    &(0..n_participants).collect::<Vec<u16>>(),
+                );
+                lambda_i_s * x_i
+            })
+            .collect();
+        let omega_sec_key = omega_shares
+            .iter()
+            .fold(Scalar::<Secp256k1>::zero(), |acc, x| acc + x);
+        assert_eq!(omega_sec_key, sec_key);
+
+        // Runs pre-signing simulation for test parameters and verifies the results.
+        let pre_signing_output_idx = 1; // l in the CGGMP20 paper.
+        let pre_sign_inputs =
+            generate_pre_sign_input(&aug_keys, &identity_providers, n_participants);
+        let ssids: Vec<SSID<Secp256k1>> = pre_sign_inputs
+            .iter()
+            .map(|(ssid, ..)| ssid.clone())
+            .collect();
+        let pre_sign_results = simulate_pre_sign(pre_sign_inputs, pre_signing_output_idx);
+        // Verifies that r, the x projection of R = g^k-1 is computed correctly.
+        let q = Scalar::<Secp256k1>::group_order();
+        let r_dist = pre_sign_results[0].as_ref().unwrap().0.R.x_coord().unwrap();
+        let k = Scalar::<Secp256k1>::from_bigint(
+            &pre_sign_results
                 .iter()
-                .enumerate()
-                .map(|(idx, it)| {
-                    let x_i = secret_shares[idx].clone();
-                    let lambda_i_s = VerifiableSS::<Secp256k1, Sha256>::map_share_to_new_params(
-                        &it.base.vss_scheme.parameters,
-                        it.base.i - 1,
-                        &(0..it.base.n).collect::<Vec<u16>>(),
-                    );
-                    lambda_i_s * x_i
-                })
-                .collect();
-            let omega_sec_key = omega_shares
+                .filter_map(|it| it.as_ref().map(|(output, _)| output.k_i.clone()))
+                .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
+        );
+        let r_direct = (Point::<Secp256k1>::generator() * k.invert().unwrap())
+            .x_coord()
+            .unwrap();
+        assert_eq!(r_dist, r_direct);
+        // Verifies that chi_i are additive shares of kx.
+        let k_x = &k * &sec_key;
+        let chi_i_sum = Scalar::<Secp256k1>::from_bigint(
+            &pre_sign_results
                 .iter()
-                .fold(Scalar::<Secp256k1>::zero(), |acc, x| acc + x);
-            assert_eq!(omega_sec_key, sec_key);
+                .filter_map(|it| it.as_ref().map(|(output, _)| output.chi_i.clone()))
+                .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
+        );
+        assert_eq!(k_x, chi_i_sum);
 
-            // Runs pre-signing simulation for test parameters and verifies the results.
-            let pre_signing_output_idx = 1; // l in the CGGMP20 paper.
-            let pre_sign_inputs = generate_pre_sign_input(&aug_keys, &identity_providers);
-            let ssids: Vec<SSID<Secp256k1>> = pre_sign_inputs
-                .iter()
-                .map(|(ssid, ..)| ssid.clone())
-                .collect();
-            let pre_sign_results = simulate_pre_sign(pre_sign_inputs, pre_signing_output_idx);
-            // Verifies that r, the x projection of R = g^k-1 is computed correctly.
-            let q = Scalar::<Secp256k1>::group_order();
-            let r_dist = pre_sign_results[0].as_ref().unwrap().0.R.x_coord().unwrap();
-            let k = Scalar::<Secp256k1>::from_bigint(
-                &pre_sign_results
-                    .iter()
-                    .filter_map(|it| it.as_ref().map(|(output, _)| output.k_i.clone()))
-                    .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
-            );
-            let r_direct = (Point::<Secp256k1>::generator() * k.invert().unwrap())
-                .x_coord()
-                .unwrap();
-            assert_eq!(r_dist, r_direct);
-            // Verifies that chi_i are additive shares of kx.
-            let k_x = &k * &sec_key;
-            let chi_i_sum = Scalar::<Secp256k1>::from_bigint(
-                &pre_sign_results
-                    .iter()
-                    .filter_map(|it| it.as_ref().map(|(output, _)| output.chi_i.clone()))
-                    .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
-            );
-            assert_eq!(k_x, chi_i_sum);
-
-            // Creates inputs for signing simulation based on test parameters and pre-signing outputs.
-            let message = b"Hello, world!";
-            // Creates signing parameters.
-            let signing_keys_and_pre_signing_output: Vec<(
-                &SigningShare,
-                &SubShare,
-                &MockECDSAIdentityProvider,
-                SSID<Secp256k1>,
-                HashMap<u16, (PresigningOutput<Secp256k1>, PresigningTranscript<Secp256k1>)>,
-            )> = pre_sign_results
-                .into_iter()
-                .filter_map(|it| {
-                    it.map(|(output, transcript)| {
-                        let idx = output.i as usize - 1;
-                        let aug_key = &aug_keys[idx];
-                        let (signing_share, sub_share) = aug_key.extra.as_ref().unwrap();
-                        (
-                            signing_share,
-                            sub_share,
-                            &identity_providers[idx],
-                            ssids[idx].clone(),
-                            HashMap::from([(pre_signing_output_idx as u16, (output, transcript))]),
-                        )
-                    })
+        // Creates inputs for signing simulation based on test parameters and pre-signing outputs.
+        let message = b"Hello, world!";
+        // Creates signing parameters.
+        let signing_keys_and_pre_signing_output: Vec<(
+            &SigningShare,
+            &SubShare,
+            &MockECDSAIdentityProvider,
+            SSID<Secp256k1>,
+            HashMap<u16, (PresigningOutput<Secp256k1>, PresigningTranscript<Secp256k1>)>,
+        )> = pre_sign_results
+            .into_iter()
+            .filter_map(|it| {
+                it.map(|(output, transcript)| {
+                    let idx = output.i as usize - 1;
+                    let aug_key = &aug_keys[idx];
+                    let (signing_share, sub_share) = aug_key.extra.as_ref().unwrap();
+                    (
+                        signing_share,
+                        sub_share,
+                        &identity_providers[idx],
+                        ssids[idx].clone(),
+                        HashMap::from([(pre_signing_output_idx as u16, (output, transcript))]),
+                    )
                 })
-                .collect();
+            })
+            .collect();
 
-            // Runs signing simulation for test parameters and verifies the output signature.
-            let results = simulate_sign(signing_keys_and_pre_signing_output, message, pre_signing_output_idx);
-            // Extracts signature from results.
-            let signature = results[0]
-                .base
-                .as_ref()
-                .map(|it| (it.r.clone(), it.sigma.clone()))
-                .unwrap();
-            // Create SHA256 message digest.
-            use sha2::Digest;
-            let mut hasher = sha2::Sha256::new();
-            hasher.update(message);
-            let message_digest = BigInt::from_bytes(&hasher.finalize());
-            let s_direct = (k.to_bigint() * (message_digest + (&r_direct * &sec_key.to_bigint())))
-                .mod_floor(q);
-            let expected_signature = (r_direct, s_direct);
-            // Compares expected signature
-            assert_eq!(signature, expected_signature);
-        }
+        // Runs signing simulation for test parameters and verifies the output signature.
+        let results = simulate_sign(
+            signing_keys_and_pre_signing_output,
+            message,
+            pre_signing_output_idx,
+        );
+        // Extracts signature from results.
+        let signature = results[0]
+            .base
+            .as_ref()
+            .map(|it| (it.r.clone(), it.sigma.clone()))
+            .unwrap();
+        // Create SHA256 message digest.
+        use sha2::Digest;
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(message);
+        let message_digest = BigInt::from_bytes(&hasher.finalize());
+        let s_direct = (k.to_bigint() * (message_digest + (&r_direct * &sec_key.to_bigint())))
+            .mod_floor(q);
+        let expected_signature = (r_direct, s_direct);
+        // Compares expected signature
+        assert_eq!(signature, expected_signature);
+    }
+
+    // All parties (2/2 signing).
+    #[test]
+    fn sign_all_parties_works() {
+        generate_parties_and_simulate_signing(1, 2, 2);
+    }
+
+    // Threshold signing (subset of parties) - (3/4 signing).
+    #[test]
+    fn sign_threshold_works() {
+        generate_parties_and_simulate_signing(2, 4, 3);
     }
 }
