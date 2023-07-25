@@ -2,7 +2,10 @@
 //!
 //! Ref: <https://wamu.tech/specification#signing>.
 
-use cggmp_threshold_ecdsa::presign::{PresigningOutput, PresigningTranscript, SSID};
+use cggmp_threshold_ecdsa::presign::state_machine::PreSigning;
+use cggmp_threshold_ecdsa::presign::{
+    PreSigningSecrets, PresigningOutput, PresigningTranscript, SSID,
+};
 use cggmp_threshold_ecdsa::sign::state_machine::{Signing, M};
 use curv::arithmetic::Converter;
 use curv::elliptic::curves::{Scalar, Secp256k1};
@@ -88,7 +91,7 @@ impl<'a, I: IdentityProvider> AugmentedSigning<'a, I> {
 impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedSigning<'a, I> {
     type StateMachineType = Signing;
     type AdditionalParams = IdentityAuthParams;
-    type AdditionalOutput = ();
+    type AdditionalOutput = AdditionalOutput;
 
     // Implements all required `AugmentedStateMachine` methods.
     impl_required_augmented_state_machine_methods!(state_machine, message_queue);
@@ -160,6 +163,87 @@ impl_state_machine_for_augmented_state_machine!(
     AdditionalOutput
 );
 
+/// A wrapper around the [`cggmp-threshold-ecdsa` PreSigning StateMachine](https://github.com/webb-tools/cggmp-threshold-ecdsa/blob/main/src/presign/state_machine.rs) that [augments pre-signing as described by the Wamu protocol](https://wamu.tech/specification#signing).
+pub struct AugmentedPreSigning<'a, I: IdentityProvider> {
+    /// Wrapped `cggmp-threshold-ecdsa` PreSigning `StateMachine`.
+    state_machine: PreSigning,
+    /// An augmented message queue.
+    message_queue:
+        Vec<Msg<AugmentedType<<PreSigning as StateMachine>::MessageBody, AdditionalParams>>>,
+    /// The decentralized identity provider of the party.
+    identity_provider: &'a I,
+    /// Verifying keys for other the parties.
+    verified_parties: &'a [VerifyingKey],
+}
+
+impl<'a, I: IdentityProvider> AugmentedPreSigning<'a, I> {
+    /// Initializes party for the augmented pre-signing protocol.
+    pub fn new(
+        signing_share: &SigningShare,
+        sub_share: &SubShare,
+        identity_provider: &'a I,
+        verified_parties: &'a [VerifyingKey],
+        mut ssid: SSID<Secp256k1>,
+        secrets: PreSigningSecrets,
+        aux_ring_pedersen_s_values: HashMap<u16, BigInt>,
+        aux_ring_pedersen_t_values: HashMap<u16, BigInt>,
+        aux_ring_pedersen_n_hat_values: HashMap<u16, BigInt>,
+        // l in the CGGMP20 paper.
+        pre_signing_output_idx: usize,
+    ) -> Result<Self, Error<<PreSigning as StateMachine>::Err>> {
+        // Reconstructs secret share.
+        let secret_share = wamu_core::share_split_reconstruct::reconstruct(
+            signing_share,
+            sub_share,
+            identity_provider,
+        )?;
+        // Sets the reconstructed secret share.
+        ssid.X.keys_linear.x_i = Scalar::<Secp256k1>::from_bytes(&secret_share.to_be_bytes())
+            .map_err(|_| Error::Core(wamu_core::Error::Encoding))?;
+
+        // Initializes state machine.
+        let mut aug_signing = Self {
+            state_machine: PreSigning::new(
+                ssid,
+                secrets,
+                aux_ring_pedersen_s_values,
+                aux_ring_pedersen_t_values,
+                aux_ring_pedersen_n_hat_values,
+                pre_signing_output_idx,
+            )?,
+            message_queue: Vec::new(),
+            identity_provider,
+            verified_parties,
+        };
+
+        // Retrieves messages from immediate state transitions (if any) and augments them.
+        aug_signing.update_augmented_message_queue()?;
+
+        // Returns augmented state machine.
+        Ok(aug_signing)
+    }
+}
+
+impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedPreSigning<'a, I> {
+    type StateMachineType = PreSigning;
+    type AdditionalParams = ();
+    type AdditionalOutput = ();
+
+    // Implements all required `AugmentedStateMachine` methods.
+    impl_required_augmented_state_machine_methods!(state_machine, message_queue);
+}
+
+// No additional params.
+type AdditionalParams = ();
+
+// Implements `StateMachine` trait for `AugmentedSigning`.
+impl_state_machine_for_augmented_state_machine!(
+    AugmentedPreSigning,
+    PreSigning,
+    AdditionalParams,
+    AdditionalOutput
+);
+
 // Implement `Debug` trait for `AugmentedSigning` for test simulations.
 #[cfg(test)]
 impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedSigning<'a, I> {
@@ -168,11 +252,17 @@ impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedSigning<'a, I> {
     }
 }
 
+// Implement `Debug` trait for `AugmentedPreSigning` for test simulations.
+#[cfg(test)]
+impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedPreSigning<'a, I> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Augmented Pre-signing")
+    }
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::asm::SubShareOutput;
-    use cggmp_threshold_ecdsa::presign::state_machine::PreSigning;
-    use cggmp_threshold_ecdsa::presign::PreSigningSecrets;
     use cggmp_threshold_ecdsa::sign::SigningOutput;
     use cggmp_threshold_ecdsa::utilities::sha2::Sha256;
     use curv::arithmetic::traits::{Modulo, One, Samplable};
@@ -233,6 +323,9 @@ pub mod tests {
 
     fn simulate_pre_sign(
         inputs: Vec<(
+            &SigningShare,
+            &SubShare,
+            &MockECDSAIdentityProvider,
             SSID<Secp256k1>,
             PreSigningSecrets,
             HashMap<u16, BigInt>,
@@ -240,12 +333,26 @@ pub mod tests {
             HashMap<u16, BigInt>,
         )>,
         pre_signing_output_idx: usize,
-    ) -> Vec<Option<(PresigningOutput<Secp256k1>, PresigningTranscript<Secp256k1>)>> {
+    ) -> Vec<
+        AugmentedType<
+            Option<(PresigningOutput<Secp256k1>, PresigningTranscript<Secp256k1>)>,
+            AdditionalOutput,
+        >,
+    > {
         // Creates simulation.
         let mut simulation = Simulation::new();
 
+        // Creates a list of verifying keys for all parties.
+        let verifying_keys: Vec<VerifyingKey> = inputs
+            .iter()
+            .map(|(_, _, identity_provider, ..)| identity_provider.verifying_key())
+            .collect();
+
         // Adds parties to simulation.
         for (
+            signing_share,
+            sub_share,
+            identity_provider,
             ssid,
             secrets,
             aux_ring_pedersen_n_hat_values,
@@ -255,7 +362,11 @@ pub mod tests {
         {
             // Add party to simulation.
             simulation.add_party(
-                PreSigning::new(
+                AugmentedPreSigning::new(
+                    signing_share,
+                    sub_share,
+                    identity_provider,
+                    &verifying_keys,
                     ssid,
                     secrets,
                     aux_ring_pedersen_s_values,
@@ -271,11 +382,14 @@ pub mod tests {
         simulation.run().unwrap()
     }
 
-    fn generate_pre_sign_input(
-        aug_keys: &[AugmentedType<LocalKey<Secp256k1>, SubShareOutput>],
-        identity_providers: &[MockECDSAIdentityProvider],
+    fn generate_pre_sign_input<'a, 'b>(
+        aug_keys: &'a [AugmentedType<LocalKey<Secp256k1>, SubShareOutput>],
+        identity_providers: &'b [MockECDSAIdentityProvider],
         n_participants: u16,
     ) -> Vec<(
+        &'a SigningShare,
+        &'a SubShare,
+        &'b MockECDSAIdentityProvider,
         SSID<Secp256k1>,
         PreSigningSecrets,
         HashMap<u16, BigInt>,
@@ -300,7 +414,8 @@ pub mod tests {
             .iter()
             .enumerate()
             .map(|(i, aug_key)| {
-                // Reconstructs secret share and update local key.
+                // Creates SSID and pre-signing secrets.
+                // Extracts "signing share", "sub-share" and local key.
                 let (signing_share, sub_share) = aug_key.extra.as_ref().unwrap();
                 let secret_share = wamu_core::share_split_reconstruct::reconstruct(
                     signing_share,
@@ -308,11 +423,7 @@ pub mod tests {
                     &identity_providers[i],
                 )
                 .unwrap();
-                let mut local_key = aug_key.base.clone();
-                local_key.keys_linear.x_i =
-                    Scalar::<Secp256k1>::from_bytes(&secret_share.to_be_bytes()).unwrap();
-
-                // Creates SSID and pre-signing secrets.
+                let local_key = aug_key.base.clone();
                 // We already have Paillier keys from GG20 key gen or FS-DKR so we just reuse them.
                 let paillier_ek = local_key.paillier_key_vec[local_key.i as usize - 1].clone();
                 let paillier_dk = local_key.paillier_dk.clone();
@@ -344,6 +455,9 @@ pub mod tests {
                 };
 
                 (
+                    signing_share,
+                    sub_share,
+                    &identity_providers[i],
                     ssid,
                     pre_sign_secrets,
                     aux_ring_pedersen_n_hat_values.clone(),
@@ -389,10 +503,10 @@ pub mod tests {
                         sub_share,
                         &identity_providers[idx],
                     )
-                        .unwrap()
-                        .to_be_bytes(),
-                )
                     .unwrap()
+                    .to_be_bytes(),
+                )
+                .unwrap()
             })
             .collect();
         let sec_key = aug_keys[0].base.vss_scheme.reconstruct(
@@ -431,16 +545,23 @@ pub mod tests {
             generate_pre_sign_input(&aug_keys, &identity_providers, n_participants);
         let ssids: Vec<SSID<Secp256k1>> = pre_sign_inputs
             .iter()
-            .map(|(ssid, ..)| ssid.clone())
+            .map(|(_, _, _, ssid, ..)| ssid.clone())
             .collect();
         let pre_sign_results = simulate_pre_sign(pre_sign_inputs, pre_signing_output_idx);
         // Verifies that r, the x projection of R = g^k-1 is computed correctly.
         let q = Scalar::<Secp256k1>::group_order();
-        let r_dist = pre_sign_results[0].as_ref().unwrap().0.R.x_coord().unwrap();
+        let r_dist = pre_sign_results[0]
+            .base
+            .as_ref()
+            .unwrap()
+            .0
+            .R
+            .x_coord()
+            .unwrap();
         let k = Scalar::<Secp256k1>::from_bigint(
             &pre_sign_results
                 .iter()
-                .filter_map(|it| it.as_ref().map(|(output, _)| output.k_i.clone()))
+                .filter_map(|it| it.base.as_ref().map(|(output, _)| output.k_i.clone()))
                 .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
         );
         let r_direct = (Point::<Secp256k1>::generator() * k.invert().unwrap())
@@ -452,7 +573,7 @@ pub mod tests {
         let chi_i_sum = Scalar::<Secp256k1>::from_bigint(
             &pre_sign_results
                 .iter()
-                .filter_map(|it| it.as_ref().map(|(output, _)| output.chi_i.clone()))
+                .filter_map(|it| it.base.as_ref().map(|(output, _)| output.chi_i.clone()))
                 .fold(BigInt::from(0), |acc, x| BigInt::mod_add(&acc, &x, q)),
         );
         assert_eq!(k_x, chi_i_sum);
@@ -469,7 +590,7 @@ pub mod tests {
         )> = pre_sign_results
             .into_iter()
             .filter_map(|it| {
-                it.map(|(output, transcript)| {
+                it.base.map(|(output, transcript)| {
                     let idx = output.i as usize - 1;
                     let aug_key = &aug_keys[idx];
                     let (signing_share, sub_share) = aug_key.extra.as_ref().unwrap();
@@ -501,8 +622,8 @@ pub mod tests {
         let mut hasher = sha2::Sha256::new();
         hasher.update(message);
         let message_digest = BigInt::from_bytes(&hasher.finalize());
-        let s_direct = (k.to_bigint() * (message_digest + (&r_direct * &sec_key.to_bigint())))
-            .mod_floor(q);
+        let s_direct =
+            (k.to_bigint() * (message_digest + (&r_direct * &sec_key.to_bigint()))).mod_floor(q);
         let expected_signature = (r_direct, s_direct);
         // Compares expected signature
         assert_eq!(signature, expected_signature);
