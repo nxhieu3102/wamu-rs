@@ -2,13 +2,13 @@
 
 A collection of modular [Rust](https://www.rust-lang.org/) libraries for implementing the [Wamu protocol](https://wamu.tech/specification) for building [threshold signature](https://academy.binance.com/en/articles/threshold-signatures-explained) wallets controlled by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
-**NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
-
 ## ⚠️ Security Warning
 
 **All crates in this repository are pre-alpha software developed as PoCs (Proofs of Concept) for the [Wamu protocol](https://wamu.tech/specification).
 They have NOT been independently audited and/or rigorously tested yet! 
 They SHOULD NOT BE USED IN PRODUCTION!**
+
+**NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
 
 ## Architecture
 
