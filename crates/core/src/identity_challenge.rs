@@ -2,8 +2,6 @@
 //!
 //! Ref: <https://wamu.tech/specification#identity-challenge>.
 
-use crypto_bigint::{Encoding, U256};
-
 use crate::crypto::{Random32Bytes, Signature, VerifyingKey};
 use crate::errors::CryptoError;
 use crate::traits::IdentityProvider;
@@ -12,15 +10,15 @@ use crate::{crypto, utils};
 /// Returns a challenge fragment for initiating an identity challenge.
 ///
 /// Ref: <https://wamu.tech/specification#identity-challenge-initiation>.
-pub fn initiate() -> U256 {
-    Random32Bytes::generate().as_u256()
+pub fn initiate() -> Random32Bytes {
+    Random32Bytes::generate()
 }
 
 /// Given a list of identity challenge fragments and an identity provider, returns the response signature for an identity challenge.
 ///
 /// Ref: <https://wamu.tech/specification#identity-challenge-response>.
 pub fn respond(
-    challenge_fragments: &[U256],
+    challenge_fragments: &[Random32Bytes],
     identity_provider: &impl IdentityProvider,
 ) -> Signature {
     identity_provider.sign(&challenge_message_bytes(challenge_fragments))
@@ -33,7 +31,7 @@ pub fn respond(
 /// Ref: <https://wamu.tech/specification#identity-challenge-verification>.
 pub fn verify(
     signature: &Signature,
-    challenge_fragments: &[U256],
+    challenge_fragments: &[Random32Bytes],
     verifying_key: &VerifyingKey,
 ) -> Result<(), CryptoError> {
     crypto::verify_signature(
@@ -44,7 +42,7 @@ pub fn verify(
 }
 
 /// Returns sign-able message bytes for the identity challenge fragments.
-fn challenge_message_bytes(challenge_fragments: &[U256]) -> Vec<u8> {
+fn challenge_message_bytes(challenge_fragments: &[Random32Bytes]) -> Vec<u8> {
     // Sort the challenge fragments so that we always get the same challenge regardless of order of receiving challenges.
     let mut sorted_challenge_fragments = challenge_fragments.to_owned();
     sorted_challenge_fragments.sort();
@@ -61,6 +59,7 @@ fn challenge_message_bytes(challenge_fragments: &[U256]) -> Vec<u8> {
 mod tests {
     use super::*;
     use crate::test_utils::MockECDSAIdentityProvider;
+    use crypto_bigint::U256;
 
     #[test]
     fn identity_challenge_works() {
@@ -68,7 +67,7 @@ mod tests {
         let identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generates identity challenge fragments.
-        let challenge_fragments: Vec<U256> = (0..5).map(|_| initiate()).collect();
+        let challenge_fragments: Vec<Random32Bytes> = (0..5).map(|_| initiate()).collect();
 
         for (actual_signer, fragments_to_sign, fragments_to_verify, expected_result) in [
             // Valid response should be accepted.
@@ -88,7 +87,9 @@ mod tests {
             // Response signing the wrong challenge fragments should be rejected.
             (
                 &identity_provider,
-                &(0..3u8).map(U256::from).collect(),
+                &(0..3u8)
+                    .map(|n| Random32Bytes::from(U256::from(n)))
+                    .collect(),
                 &challenge_fragments,
                 Err(CryptoError::InvalidSignature),
             ),

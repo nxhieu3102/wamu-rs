@@ -1,8 +1,6 @@
 //! Types and abstractions for request payloads.
 
-use crypto_bigint::U256;
-
-use crate::crypto::{Signature, VerifyingKey};
+use crate::crypto::{Random32Bytes, Signature, VerifyingKey};
 
 /// An identity authenticated request payload.
 #[derive(Debug, Clone)]
@@ -32,7 +30,7 @@ pub struct IdentityRotationChallengeResponsePayload {
 #[derive(Debug, Clone)]
 pub struct CommandApprovalPayload {
     /// An identity challenge fragment from an approving party.
-    pub challenge_fragment: U256,
+    pub challenge_fragment: Random32Bytes,
     /// The verifying key of the approving party.
     pub verifying_key: VerifyingKey,
     /// A signature of the identity challenge fragment by the approving party.

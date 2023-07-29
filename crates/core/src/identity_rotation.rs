@@ -2,9 +2,7 @@
 //!
 //! Ref: <https://wamu.tech/specification#identity-rotation>.
 
-use crypto_bigint::U256;
-
-use crate::crypto::VerifyingKey;
+use crate::crypto::{Random32Bytes, VerifyingKey};
 use crate::errors::{Error, IdentityAuthedRequestError};
 use crate::payloads::{IdentityAuthedRequestPayload, IdentityRotationChallengeResponsePayload};
 use crate::share::{SigningShare, SubShare};
@@ -24,7 +22,7 @@ pub fn initiate(identity_provider: &impl IdentityProvider) -> IdentityAuthedRequ
 pub fn verify_request_and_initiate_challenge(
     request: &IdentityAuthedRequestPayload,
     verified_parties: &[VerifyingKey],
-) -> Result<U256, IdentityAuthedRequestError> {
+) -> Result<Random32Bytes, IdentityAuthedRequestError> {
     wrappers::verify_identity_authed_request_and_initiate_challenge(
         IDENTITY_ROTATION,
         request,
@@ -36,7 +34,7 @@ pub fn verify_request_and_initiate_challenge(
 /// returns the identity rotation challenge response payload that includes the new verifying key and
 /// challenge response signatures from both the current and the new identity providers.
 pub fn challenge_response(
-    challenge_fragments: &[U256],
+    challenge_fragments: &[Random32Bytes],
     current_identity_provider: &impl IdentityProvider,
     new_identity_provider: &impl IdentityProvider,
 ) -> IdentityRotationChallengeResponsePayload {
@@ -55,7 +53,7 @@ pub fn challenge_response(
 /// returns an `Ok` result for valid identity rotation challenge response signature, or an appropriate `Err` result otherwise.
 pub fn verify_challenge_response(
     response: &IdentityRotationChallengeResponsePayload,
-    challenge_fragments: &[U256],
+    challenge_fragments: &[Random32Bytes],
     verifying_key: &VerifyingKey,
 ) -> Result<(), Error> {
     // Verifies current identity.
@@ -96,6 +94,7 @@ mod tests {
     use crate::errors::CryptoError;
     use crate::share::SecretShare;
     use crate::test_utils::MockECDSAIdentityProvider;
+    use crypto_bigint::U256;
 
     #[test]
     fn identity_rotation_works() {
@@ -103,7 +102,7 @@ mod tests {
         let current_identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generate secret share.
-        let secret_share = SecretShare::from(Random32Bytes::generate().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate());
 
         // Computes "signing share" and "sub-share".
         let (current_signing_share, current_sub_share_b) =
@@ -116,7 +115,7 @@ mod tests {
         let init_payload = initiate(&current_identity_provider);
 
         // Verifies identity rotation request and initiates challenge.
-        let init_results: Vec<Result<U256, IdentityAuthedRequestError>> = (0..5)
+        let init_results: Vec<Result<Random32Bytes, IdentityAuthedRequestError>> = (0..5)
             .map(|_| {
                 verify_request_and_initiate_challenge(
                     &init_payload,
@@ -129,7 +128,7 @@ mod tests {
         assert!(!init_results.iter().any(|result| result.is_err()));
 
         // Unwrap challenge fragments.
-        let challenge_fragments: Vec<U256> = init_results
+        let challenge_fragments: Vec<Random32Bytes> = init_results
             .into_iter()
             .map(|result| result.unwrap())
             .collect();
@@ -157,7 +156,9 @@ mod tests {
             // Challenge response signing the wrong challenge fragments should be rejected.
             (
                 &current_identity_provider,
-                &(0..3u8).map(U256::from).collect(),
+                &(0..3u8)
+                    .map(|n| Random32Bytes::from(U256::from(n)))
+                    .collect(),
                 &challenge_fragments,
                 Err(Error::Crypto(CryptoError::InvalidSignature)),
             ),
@@ -199,8 +200,8 @@ mod tests {
 
         // Verifies reconstructed "secret share".
         assert_eq!(
-            &reconstructed_secret_share.as_u256(),
-            &secret_share.as_u256()
+            &reconstructed_secret_share.to_be_bytes(),
+            &secret_share.to_be_bytes()
         );
     }
 }

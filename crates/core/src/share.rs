@@ -11,24 +11,31 @@ use crate::errors::{ArithmeticError, Error};
 ///
 /// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub struct SecretShare(Random32Bytes);
+pub struct SecretShare([u8; 32]);
+
+impl From<Random32Bytes> for SecretShare {
+    /// Converts `Random32Bytes` into a "secret share".
+    fn from(value: Random32Bytes) -> Self {
+        Self(value.to_be_bytes())
+    }
+}
 
 impl From<U256> for SecretShare {
     /// Converts a U256 into a "secret share".
     fn from(value: U256) -> Self {
-        Self(Random32Bytes::from(value))
+        Self(Random32Bytes::from(value).to_be_bytes())
     }
 }
 
 impl SecretShare {
     /// Returns the underlying `U256` for "secret share".
     pub fn as_u256(&self) -> U256 {
-        self.0.as_u256()
+        U256::from_be_slice(&self.0)
     }
 
     /// Returns 32 bytes representation of the "secret share".
     pub fn to_be_bytes(&self) -> [u8; 32] {
-        self.0.to_be_bytes()
+        self.0
     }
 }
 
@@ -37,7 +44,7 @@ impl TryFrom<&[u8]> for SecretShare {
 
     /// Converts a slice of bytes into a "secret share".
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        Ok(Self(Random32Bytes::try_from(slice)?))
+        Ok(Self(Random32Bytes::try_from(slice)?.to_be_bytes()))
     }
 }
 
@@ -45,17 +52,24 @@ impl TryFrom<&[u8]> for SecretShare {
 ///
 /// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub struct SigningShare(Random32Bytes);
+pub struct SigningShare([u8; 32]);
 
 impl SigningShare {
     /// Generates a new "signing share" as a random 256 bit unsigned integer.
     pub fn generate() -> Self {
-        Self(Random32Bytes::generate())
+        Self(Random32Bytes::generate().to_be_bytes())
     }
 
     /// Returns underlying 32 bytes for "signing share".
     pub fn to_be_bytes(&self) -> [u8; 32] {
-        self.0.to_be_bytes()
+        self.0
+    }
+}
+
+impl From<Random32Bytes> for SigningShare {
+    /// Converts `Random32Bytes` into a "signing share".
+    fn from(value: Random32Bytes) -> Self {
+        Self(value.to_be_bytes())
     }
 }
 

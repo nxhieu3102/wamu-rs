@@ -65,7 +65,7 @@ mod tests {
     #[test]
     fn share_splitting_and_reconstruction_works() {
         // Generates secret share.
-        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q());
 
         // Generates identity provider.
         let identity_provider = MockECDSAIdentityProvider::generate();
@@ -79,8 +79,8 @@ mod tests {
 
         // Verifies reconstructed "secret share".
         assert_eq!(
-            &reconstructed_secret_share.as_u256(),
-            &secret_share.as_u256()
+            &reconstructed_secret_share.to_be_bytes(),
+            &secret_share.to_be_bytes()
         );
     }
 }

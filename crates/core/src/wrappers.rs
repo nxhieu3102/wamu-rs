@@ -1,8 +1,6 @@
 //! Convenience wrappers around core sub-protocols.
 
-use crypto_bigint::U256;
-
-use crate::crypto::{Signature, VerifyingKey};
+use crate::crypto::{Random32Bytes, Signature, VerifyingKey};
 use crate::errors::{Error, IdentityAuthedRequestError};
 use crate::identity_authed_request;
 use crate::identity_challenge;
@@ -52,7 +50,7 @@ pub fn verify_identity_authed_request_and_initiate_challenge(
     command: &str,
     request: &IdentityAuthedRequestPayload,
     verified_parties: &[VerifyingKey],
-) -> Result<U256, IdentityAuthedRequestError> {
+) -> Result<Random32Bytes, IdentityAuthedRequestError> {
     if command != request.command {
         // Command doesn't match request payload.
         Err(IdentityAuthedRequestError::CommandMismatch)

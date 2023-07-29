@@ -137,7 +137,7 @@ mod tests {
         let entropy_seed = b"Hello, world!";
 
         // Generates secret share.
-        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q());
 
         // Computes "signing share" and "sub-share".
         let (signing_share, sub_share) =

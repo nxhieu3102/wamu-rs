@@ -2,7 +2,8 @@
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{impl_modulus, Encoding, NonZero, Random, RandomMod, U256};
-use zeroize::{Zeroize, ZeroizeOnDrop};
+use std::fmt;
+use zeroize::Zeroize;
 
 use crate::errors::{CryptoError, Error};
 
@@ -16,7 +17,8 @@ impl_modulus!(
 );
 
 /// A convenience wrapper for generating and encoding/decoding cryptographically secure random values.
-#[derive(Zeroize, ZeroizeOnDrop)]
+// No `ZeroizeOnDrop` because we want `Random32Bytes` to be `Copy` like `U256`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Zeroize)]
 pub struct Random32Bytes(U256);
 
 impl Random32Bytes {
@@ -71,6 +73,12 @@ impl TryFrom<&[u8]> for Random32Bytes {
         } else {
             Err(Error::Encoding)
         }
+    }
+}
+
+impl fmt::Display for Random32Bytes {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.as_u256())
     }
 }
 

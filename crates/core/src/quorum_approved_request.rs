@@ -2,9 +2,7 @@
 //!
 //! Ref: <https://wamu.tech/specification#quorum-approved-request>.
 
-use crypto_bigint::U256;
-
-use crate::crypto::VerifyingKey;
+use crate::crypto::{Random32Bytes, VerifyingKey};
 use crate::errors::{IdentityAuthedRequestError, QuorumApprovedRequestError};
 use crate::payloads::{
     CommandApprovalPayload, IdentityAuthedRequestPayload, QuorumApprovedChallengeResponsePayload,
@@ -65,7 +63,7 @@ pub fn challenge_response(
         .collect();
     Ok(QuorumApprovedChallengeResponsePayload {
         signature: identity_challenge::respond(
-            &extract_challenge_fragments(&valid_approvals).collect::<Vec<U256>>(),
+            &extract_challenge_fragments(&valid_approvals).collect::<Vec<Random32Bytes>>(),
             identity_provider,
         ),
         approving_quorum,
@@ -98,7 +96,8 @@ pub fn verify_challenge_response(
     )?;
     Ok(identity_challenge::verify(
         &response.signature,
-        &extract_challenge_fragments(&initiator_acknowledged_approvals).collect::<Vec<U256>>(),
+        &extract_challenge_fragments(&initiator_acknowledged_approvals)
+            .collect::<Vec<Random32Bytes>>(),
         verifying_key,
     )?)
 }
@@ -149,7 +148,7 @@ fn filter_valid_approvals(
 
 /// Returns sign-able message bytes for the command approval.
 fn command_approval_message_bytes(
-    challenge_fragment: &U256,
+    challenge_fragment: &Random32Bytes,
     command: &str,
     timestamp: u64,
 ) -> Vec<u8> {
@@ -161,7 +160,7 @@ fn command_approval_message_bytes(
 /// Given a list of command approval payloads and an identity provider, returns a list of wrapped challenge fragments.
 fn extract_challenge_fragments(
     approvals: &[CommandApprovalPayload],
-) -> impl Iterator<Item = U256> + '_ {
+) -> impl Iterator<Item = Random32Bytes> + '_ {
     approvals.iter().map(|item| item.challenge_fragment)
 }
 
@@ -170,6 +169,7 @@ mod tests {
     use super::*;
     use crate::errors::{CryptoError, Error};
     use crate::test_utils::MockECDSAIdentityProvider;
+    use crypto_bigint::U256;
 
     #[test]
     fn quorum_approved_request_initiation_and_verification_works() {
@@ -261,7 +261,7 @@ mod tests {
                 &approver_identity_providers
                     .iter()
                     .map(|identity_provider| {
-                        let challenge_fragment = U256::ONE;
+                        let challenge_fragment = Random32Bytes::from(U256::ONE);
                         let signature = identity_provider.sign(&command_approval_message_bytes(
                             &challenge_fragment,
                             init_payload.command,
