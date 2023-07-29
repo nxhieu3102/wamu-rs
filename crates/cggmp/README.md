@@ -46,4 +46,4 @@ Licensed under [GPL-3.0](https://github.com/wamutech/wamu-rs/tree/master/LICENSE
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the GPL-3.0 license, shall be
-dual licensed as above, without any additional terms or conditions.
+licensed as above, without any additional terms or conditions.

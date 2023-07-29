@@ -69,7 +69,7 @@ cargo test -p wamu-core
 | Crate                                    | Guidelines                                                                                                                                                                                                                           |
 |------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Wamu Core ([wamu-core](/crates/core))    | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any additional terms or conditions. |
-| Wamu CGGMP ([wamu-cggmp](/crates/cggmp)) | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the GPL-3.0 license, shall be dual licensed as above, without any additional terms or conditions.    |
+| Wamu CGGMP ([wamu-cggmp](/crates/cggmp)) | Unless you explicitly state otherwise, any contribution intentionally submitted for inclusion in the work by you, as defined in the GPL-3.0 license, shall be licensed as above, without any additional terms or conditions.         |
 
 ## Acknowledgements
 
