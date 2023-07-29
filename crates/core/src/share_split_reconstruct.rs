@@ -59,13 +59,13 @@ pub fn reconstruct(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::RandomBytes;
+    use crate::crypto::Random32Bytes;
     use crate::test_utils::MockECDSAIdentityProvider;
 
     #[test]
     fn share_splitting_and_reconstruction_works() {
         // Generates secret share.
-        let secret_share = SecretShare::from(RandomBytes::generate_mod_q().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q().as_u256());
 
         // Generates identity provider.
         let identity_provider = MockECDSAIdentityProvider::generate();

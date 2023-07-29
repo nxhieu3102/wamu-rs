@@ -4,7 +4,7 @@ use crypto_bigint::modular::constant_mod::ResidueParams;
 use crypto_bigint::{impl_modulus, Encoding, NonZero, Random, RandomMod, U256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::errors::CryptoError;
+use crate::errors::{CryptoError, Error};
 
 // Order of the `Secp256k1` elliptic curve a `crypto-bigint` modulus type.
 // Ref: <https://www.secg.org/sec2-v2.pdf>.
@@ -17,9 +17,9 @@ impl_modulus!(
 
 /// A convenience wrapper for generating and encoding/decoding cryptographically secure random values.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub struct RandomBytes(U256);
+pub struct Random32Bytes(U256);
 
-impl RandomBytes {
+impl Random32Bytes {
     /// Generates a cryptographically secure random value.
     pub fn generate() -> Self {
         let mut rng = rand::thread_rng();
@@ -43,6 +43,34 @@ impl RandomBytes {
     /// Returns 32 bytes representation of the "secret share".
     pub fn to_be_bytes(&self) -> [u8; 32] {
         self.0.to_be_bytes()
+    }
+}
+
+impl From<U256> for Random32Bytes {
+    /// Converts a U256 into a `RandomBytes` representation.
+    fn from(value: U256) -> Self {
+        Self(value)
+    }
+}
+
+impl From<[u8; 32]> for Random32Bytes {
+    /// Converts a 32 byte slice into a `RandomBytes` representation.
+    fn from(value: [u8; 32]) -> Self {
+        Self(U256::from_be_slice(&value))
+    }
+}
+
+impl TryFrom<&[u8]> for Random32Bytes {
+    type Error = Error;
+
+    /// Converts a slice of bytes into a `RandomBytes` representation.
+    fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
+        // Input slice must be 32 bytes long.
+        if slice.len() == 32 {
+            Ok(Self(U256::from_be_slice(slice)))
+        } else {
+            Err(Error::Encoding)
+        }
     }
 }
 

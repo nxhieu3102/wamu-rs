@@ -92,7 +92,7 @@ pub fn rotate_signing_and_sub_share(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::RandomBytes;
+    use crate::crypto::Random32Bytes;
     use crate::errors::CryptoError;
     use crate::share::SecretShare;
     use crate::test_utils::MockECDSAIdentityProvider;
@@ -103,7 +103,7 @@ mod tests {
         let current_identity_provider = MockECDSAIdentityProvider::generate();
 
         // Generate secret share.
-        let secret_share = SecretShare::from(RandomBytes::generate().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate().as_u256());
 
         // Computes "signing share" and "sub-share".
         let (current_signing_share, current_sub_share_b) =

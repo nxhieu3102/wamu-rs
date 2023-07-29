@@ -123,7 +123,7 @@ fn generate_encryption_key(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::crypto::RandomBytes;
+    use crate::crypto::Random32Bytes;
     use crate::share::SecretShare;
     use crate::share_split_reconstruct;
     use crate::test_utils::MockECDSAIdentityProvider;
@@ -137,7 +137,7 @@ mod tests {
         let entropy_seed = b"Hello, world!";
 
         // Generates secret share.
-        let secret_share = SecretShare::from(RandomBytes::generate_mod_q().as_u256());
+        let secret_share = SecretShare::from(Random32Bytes::generate_mod_q().as_u256());
 
         // Computes "signing share" and "sub-share".
         let (signing_share, sub_share) =

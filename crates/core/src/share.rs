@@ -1,29 +1,29 @@
 //! Secret share and "sub-share" types, abstractions and utilities.
 
 use crypto_bigint::modular::constant_mod::ResidueParams;
-use crypto_bigint::{const_residue, Encoding, U256};
+use crypto_bigint::{const_residue, U256};
 use zeroize::{Zeroize, ZeroizeOnDrop};
 
-use crate::crypto::{RandomBytes, Secp256k1Order};
+use crate::crypto::{Random32Bytes, Secp256k1Order};
 use crate::errors::{ArithmeticError, Error};
 
 /// A "secret share" as defined by the Wamu protocol.
 ///
 /// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub struct SecretShare(U256);
+pub struct SecretShare(Random32Bytes);
 
 impl From<U256> for SecretShare {
-    /// Converts a slice of bytes to a "secret share".
+    /// Converts a U256 into a "secret share".
     fn from(value: U256) -> Self {
-        Self(value)
+        Self(Random32Bytes::from(value))
     }
 }
 
 impl SecretShare {
     /// Returns the underlying `U256` for "secret share".
     pub fn as_u256(&self) -> U256 {
-        self.0
+        self.0.as_u256()
     }
 
     /// Returns 32 bytes representation of the "secret share".
@@ -35,14 +35,9 @@ impl SecretShare {
 impl TryFrom<&[u8]> for SecretShare {
     type Error = Error;
 
-    /// Converts a slice of bytes to a "secret share".
+    /// Converts a slice of bytes into a "secret share".
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
-        // Input slice must be 32 bytes long.
-        if slice.len() == 32 {
-            Ok(Self(U256::from_be_slice(slice)))
-        } else {
-            Err(Error::Encoding)
-        }
+        Ok(Self(Random32Bytes::try_from(slice)?))
     }
 }
 
@@ -50,24 +45,24 @@ impl TryFrom<&[u8]> for SecretShare {
 ///
 /// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
 #[derive(Zeroize, ZeroizeOnDrop)]
-pub struct SigningShare([u8; 32]);
+pub struct SigningShare(Random32Bytes);
 
 impl SigningShare {
     /// Generates a new "signing share" as a random 256 bit unsigned integer.
     pub fn generate() -> Self {
-        Self(RandomBytes::generate().to_be_bytes())
+        Self(Random32Bytes::generate())
     }
 
     /// Returns underlying 32 bytes for "signing share".
     pub fn to_be_bytes(&self) -> [u8; 32] {
-        self.0
+        self.0.to_be_bytes()
     }
 }
 
 impl TryFrom<&[u8]> for SigningShare {
     type Error = Error;
 
-    /// Converts a slice of bytes to a "signing share".
+    /// Converts a slice of bytes into a "signing share".
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
         // Input slice must be 32 bytes long.
         if slice.len() == 32 {

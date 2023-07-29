@@ -4,7 +4,7 @@
 
 use crypto_bigint::{Encoding, U256};
 
-use crate::crypto::{RandomBytes, Signature, VerifyingKey};
+use crate::crypto::{Random32Bytes, Signature, VerifyingKey};
 use crate::errors::CryptoError;
 use crate::traits::IdentityProvider;
 use crate::{crypto, utils};
@@ -13,7 +13,7 @@ use crate::{crypto, utils};
 ///
 /// Ref: <https://wamu.tech/specification#identity-challenge-initiation>.
 pub fn initiate() -> U256 {
-    RandomBytes::generate().as_u256()
+    Random32Bytes::generate().as_u256()
 }
 
 /// Given a list of identity challenge fragments and an identity provider, returns the response signature for an identity challenge.

@@ -439,7 +439,7 @@ pub mod tests {
                     g: generator.clone(),
                     q: group_order.clone(),
                     P: party_indices.clone(),
-                    rid: wamu_core::crypto::RandomBytes::generate().to_be_bytes(),
+                    rid: wamu_core::crypto::Random32Bytes::generate().to_be_bytes(),
                     X: local_key,
                     Y: None, // Y is not needed for 4-round signing.
                     N: paillier_ek.n.clone(),
