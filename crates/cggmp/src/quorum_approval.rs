@@ -5,7 +5,7 @@
 use round_based::{IsCritical, Msg, StateMachine};
 use std::collections::HashMap;
 use std::time::Duration;
-use wamu_core::crypto::{Random32Bytes, VerifyingKey};
+use wamu_core::crypto::VerifyingKey;
 use wamu_core::{
     CommandApprovalPayload, IdentityAuthedRequestError, IdentityAuthedRequestPayload,
     IdentityProvider, QuorumApprovedChallengeResponsePayload, QuorumApprovedRequestError,
@@ -53,11 +53,10 @@ impl<'a, I: IdentityProvider> QuorumApproval<'a, I> {
         n_parties: u16,
         is_initiator: bool,
     ) -> QuorumApproval<'a, I> {
+        // Generates initiation payload for initiating party and moves it to round 2.
         let mut message_queue = Vec::new();
         let mut round = Round::One;
         let mut request_option = None;
-
-        // Generates initiation payload for initiating party and moves it to round 2.
         if is_initiator {
             let request = wamu_core::quorum_approved_request::initiate(command, identity_provider);
 
@@ -70,6 +69,8 @@ impl<'a, I: IdentityProvider> QuorumApproval<'a, I> {
             request_option = Some(request);
             round = Round::Two;
         }
+
+        // Returns quorum approval machine.
         Self {
             command,
             identity_provider,
@@ -276,7 +277,12 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
             return Some(Err(Error::AlreadyPicked));
         }
 
-        Some(Ok(true))
+        self.is_finished().then(|| {
+            // Picking output is infallible after this, so we set output to gone.
+            self.round = Round::Gone;
+
+            Ok(true)
+        })
     }
 
     fn current_round(&self) -> u16 {
@@ -290,7 +296,7 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
     }
 
     fn total_rounds(&self) -> Option<u16> {
-        Some(5)
+        Some(4)
     }
 
     fn party_ind(&self) -> u16 {

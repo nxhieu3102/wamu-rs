@@ -55,9 +55,9 @@ impl<'a, I: IdentityProvider> IdentityRotation<'a, I> {
         signing_share_option: Option<&'a SigningShare>,
         sub_share_option: Option<&'a SubShare>,
     ) -> IdentityRotation<'a, I> {
+        // Generates initiation payload for rotating party and moves it to round 2.
         let mut message_queue = Vec::new();
         let mut round = Round::One;
-        // Generates initiation payload for rotating party and moves it to round 2.
         if new_identity_provider_option.is_some() {
             let request = wamu_core::identity_rotation::initiate(identity_provider);
             message_queue.push(Msg {
@@ -67,6 +67,8 @@ impl<'a, I: IdentityProvider> IdentityRotation<'a, I> {
             });
             round = Round::Two;
         }
+
+        // Returns identity rotation machine.
         Self {
             identity_provider,
             verified_parties,
@@ -272,33 +274,37 @@ impl<'a, I: IdentityProvider> StateMachine for IdentityRotation<'a, I> {
             return Some(Err(Error::AlreadyPicked));
         }
 
-        // For the rotating party, we attempt to construct a new "signing share" and "sub-share",
-        // Any failures to construct a new "signing share" and "sub-share" are ignored
-        // and simply indicated by an `Some(Ok((None, None)))`
-        // which tells the rotating party that the multi-party protocol was successful
-        // and it should independently retry rotating it's "signing share" and "sub-share".
-        if let Some(new_identity_provider) = self.new_identity_provider_option {
-            if let Some((signing_share, sub_share)) =
-                self.signing_share_option.zip(self.sub_share_option)
-            {
-                if let Ok((new_signing_share, new_sub_share)) =
-                    wamu_core::identity_rotation::rotate_signing_and_sub_share(
-                        signing_share,
-                        sub_share,
-                        self.identity_provider,
-                        new_identity_provider,
-                    )
+        self.is_finished().then(|| {
+            // Picking output is infallible after this, so we set output to gone.
+            self.round = Round::Gone;
+
+            // For the rotating party, we attempt to construct a new "signing share" and "sub-share",
+            // Any failures to construct a new "signing share" and "sub-share" are ignored
+            // and simply indicated by an `Some(Ok((None, None)))`
+            // which tells the rotating party that the multi-party protocol was successful
+            // and it should independently retry rotating it's "signing share" and "sub-share".
+            if let Some(new_identity_provider) = self.new_identity_provider_option {
+                if let Some((signing_share, sub_share)) =
+                    self.signing_share_option.zip(self.sub_share_option)
                 {
-                    return Some(Ok((Some((new_signing_share, new_sub_share)), None)));
+                    if let Ok((new_signing_share, new_sub_share)) =
+                        wamu_core::identity_rotation::rotate_signing_and_sub_share(
+                            signing_share,
+                            sub_share,
+                            self.identity_provider,
+                            new_identity_provider,
+                        )
+                    {
+                        return Ok((Some((new_signing_share, new_sub_share)), None));
+                    }
                 }
+                Ok((None, None))
+            } else {
+                // For all other parties, we return a new list of `verified_parties` in Round 4,
+                // so no output is necessary apart from an indicator that something change (i.e output is `Some`).
+                Ok((None, self.output_verified_parties_option.clone()))
             }
-
-            return Some(Ok((None, None)));
-        }
-
-        // For all other parties, we return a new list of `verified_parties` in Round 4,
-        // so no output is necessary apart from an indicator that something change (i.e output is `Some`).
-        Some(Ok((None, self.output_verified_parties_option.clone())))
+        })
     }
 
     fn current_round(&self) -> u16 {

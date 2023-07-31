@@ -48,10 +48,9 @@ impl<'a, I: IdentityProvider> IdentityAuthentication<'a, I> {
         n_parties: u16,
         is_initiator: bool,
     ) -> IdentityAuthentication<'a, I> {
+        // Generates initiation payload for initiating party and moves it to round 2.
         let mut message_queue = Vec::new();
         let mut round = Round::One;
-
-        // Generates initiation payload for initiating party and moves it to round 2.
         if is_initiator {
             let request = wamu_core::identity_authed_request::initiate(command, identity_provider);
             message_queue.push(Msg {
@@ -61,6 +60,8 @@ impl<'a, I: IdentityProvider> IdentityAuthentication<'a, I> {
             });
             round = Round::Two;
         }
+
+        // Returns identity authentication machine.
         Self {
             command,
             identity_provider,
@@ -253,7 +254,12 @@ impl<'a, I: IdentityProvider> StateMachine for IdentityAuthentication<'a, I> {
             return Some(Err(Error::AlreadyPicked));
         }
 
-        Some(Ok(true))
+        self.is_finished().then(|| {
+            // Picking output is infallible after this, so we set output to gone.
+            self.round = Round::Gone;
+
+            Ok(true)
+        })
     }
 
     fn current_round(&self) -> u16 {
@@ -267,7 +273,7 @@ impl<'a, I: IdentityProvider> StateMachine for IdentityAuthentication<'a, I> {
     }
 
     fn total_rounds(&self) -> Option<u16> {
-        Some(5)
+        Some(4)
     }
 
     fn party_ind(&self) -> u16 {
@@ -343,7 +349,7 @@ mod tests {
     use round_based::dev::Simulation;
     use wamu_core::test_utils::MockECDSAIdentityProvider;
 
-    pub fn simulate_identity_auth_and_challenge(
+    pub fn simulate_identity_authentication(
         // Party key configs including the "signing share", "sub-share", identity provider and
         // `LocalKey<Secp256k1>` from `multi-party-ecdsa` with the secret share cleared/zerorized.
         party_key_configs: Vec<(
@@ -379,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn identity_auth_and_challenge_works() {
+    fn identity_authentication_works() {
         let n_parties = 4;
         let initiating_party_idx = 2u16;
 
@@ -397,7 +403,7 @@ mod tests {
         }
 
         // Runs identity authentication simulation for test parameters.
-        let results = simulate_identity_auth_and_challenge(party_key_configs, n_parties);
+        let results = simulate_identity_authentication(party_key_configs, n_parties);
 
         // Verifies the outcome for all parties.
         assert_eq!(results.len(), n_parties as usize);
