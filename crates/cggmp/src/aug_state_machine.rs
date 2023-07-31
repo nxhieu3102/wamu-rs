@@ -1,4 +1,4 @@
-//! Types, traits, abstractions and utilities for augmenting a [`StateMachine`](round_based::StateMachine).
+//! Types, traits, abstractions and utilities for augmenting a [`StateMachine`](StateMachine).
 
 use curv::elliptic::curves::{ECScalar, Scalar, Secp256k1};
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::state_machine::keygen::LocalKey;
@@ -10,7 +10,7 @@ use zeroize::Zeroize;
 
 use crate::errors::Error;
 
-/// A [`StateMachine`](round_based::StateMachine) that wraps and augments another [`StateMachine`](round_based::StateMachine).
+/// A [`StateMachine`](StateMachine) that wraps and augments another [`StateMachine`](StateMachine).
 pub trait AugmentedStateMachine {
     /// The type of the wrapped `StateMachine`.
     type StateMachineType: StateMachine;

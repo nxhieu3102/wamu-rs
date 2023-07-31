@@ -176,7 +176,7 @@ impl<'a, I: IdentityProvider> std::fmt::Debug for ShareAddition<'a, I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::asm::{AugmentedType, SubShareOutput};
+    use crate::aug_state_machine::{AugmentedType, SubShareOutput};
     use crate::keygen::tests::simulate_key_gen;
     use curv::elliptic::curves::Scalar;
     use round_based::dev::Simulation;
