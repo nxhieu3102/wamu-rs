@@ -3,15 +3,18 @@
 pub use self::{
     errors::Error, identity_auth::IdentityAuthentication, identity_rotation::IdentityRotation,
     key_refresh::AugmentedKeyRefresh, keygen::AugmentedKeyGen, quorum_approval::QuorumApproval,
-    sign::AugmentedPreSigning, sign::AugmentedSigning,
+    share_recovery_quorum::ShareRecoveryQuorum, sign::AugmentedPreSigning, sign::AugmentedSigning,
 };
 
 #[macro_use]
 pub mod asm;
+#[macro_use]
+mod authorized_key_refresh;
 mod errors;
 mod identity_auth;
 mod identity_rotation;
 mod key_refresh;
 mod keygen;
 mod quorum_approval;
+mod share_recovery_quorum;
 mod sign;
