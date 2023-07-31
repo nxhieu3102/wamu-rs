@@ -1,5 +1,6 @@
 //! Traits for core types.
 
+use std::fmt::Debug;
 use crate::crypto::{Signature, VerifyingKey};
 
 /// Interface for a [decentralized identity](https://ethereum.org/en/decentralized-identity/) provider.
@@ -8,7 +9,7 @@ use crate::crypto::{Signature, VerifyingKey};
 /// the only requirement for decentralized identity providers is
 /// the ability to compute cryptographic signatures for any arbitrary message in such a way that
 /// the output signature can be verified in a non-interactive manner.
-pub trait IdentityProvider {
+pub trait IdentityProvider: Clone + Debug {
     /// Returns the verifying key (i.e public key or address) for the identity.
     fn verifying_key(&self) -> VerifyingKey;
 
