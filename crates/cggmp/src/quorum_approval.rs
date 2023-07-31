@@ -39,6 +39,9 @@ pub struct QuorumApproval<'a, I: IdentityProvider> {
     verification_outcome: Option<bool>,
     /// Outcome of the identity authentication verification.
     received_verification_outcomes: HashMap<u16, Option<bool>>,
+    // Hack for composite protocols (e.g share addition) where some parties (e.g new parties in the case of share additional) are dormant during the quorum approval.
+    // Whether or not this party actively participates in the protocol.
+    is_dormant: bool,
 }
 
 impl<'a, I: IdentityProvider> QuorumApproval<'a, I> {
@@ -52,6 +55,7 @@ impl<'a, I: IdentityProvider> QuorumApproval<'a, I> {
         threshold: u16,
         n_parties: u16,
         is_initiator: bool,
+        is_dormant: bool,
     ) -> QuorumApproval<'a, I> {
         // Generates initiation payload for initiating party and moves it to round 2.
         let mut message_queue = Vec::new();
@@ -85,6 +89,7 @@ impl<'a, I: IdentityProvider> QuorumApproval<'a, I> {
             command_approvals: HashMap::new(),
             verification_outcome: None,
             received_verification_outcomes: HashMap::new(),
+            is_dormant,
         }
     }
 }
@@ -101,7 +106,7 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
                 // The initiating party doesn't need to do anything further for this round,
                 // while other parties verify the identity authentication request
                 // and immediately process the next round if the identity authentication request verification is successful.
-                if !self.is_initiator {
+                if !self.is_initiator && !self.is_dormant {
                     let command_approval =
                         wamu_core::quorum_approved_request::verify_request_and_initiate_challenge(
                             self.command,
@@ -135,7 +140,7 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
                 // The initiating party doesn't need to do anything further for this round,
                 // while other parties verify the challenge response
                 // and immediately process the next round if the challenge response verification is successful.
-                if !self.is_initiator {
+                if !self.is_initiator && !self.is_dormant {
                     let request = self.request.as_ref().ok_or(Error::InvalidState)?;
                     wamu_core::quorum_approved_request::verify_challenge_response(
                         &response,
@@ -178,7 +183,7 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
             // Initiating party is immediately ready to proceed from Round 1 after initialization,
             // while other parties need to prepare their challenge fragments first before they can proceed.
             Round::One => {
-                if self.is_initiator {
+                if self.is_initiator || self.is_dormant {
                     true
                 } else {
                     self.command_approvals.contains_key(&self.idx)
@@ -188,12 +193,17 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
             // while other parties need receive challenge fragments from all other parties except the initiating party and themselves (i.e n_parties - 2).
             Round::Two => {
                 self.command_approvals.len()
-                    == self.n_parties as usize - if self.is_initiator { 1 } else { 2 }
+                    == self.n_parties as usize
+                        - if self.is_initiator || self.is_dormant {
+                            1
+                        } else {
+                            2
+                        }
             }
             // Initiating party is immediately ready to proceed from Round 3 after initialization,
             // while other parties need to receive the challenge response and either accept it or reject it before they can proceed.
             Round::Three => {
-                if self.is_initiator {
+                if self.is_initiator || self.is_dormant {
                     true
                 } else {
                     self.verification_outcome.is_some()
@@ -203,7 +213,12 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
             // while other parties need receive outcomes from all other parties except the initiating party and themselves (i.e n_parties - 2).
             Round::Four => {
                 self.received_verification_outcomes.len()
-                    == self.n_parties as usize - if self.is_initiator { 1 } else { 2 }
+                    == self.n_parties as usize
+                        - if self.is_initiator || self.is_dormant {
+                            1
+                        } else {
+                            2
+                        }
             }
             // The protocol is completed at this point and output should be picked.
             Round::Final | Round::Gone => false,
@@ -411,6 +426,7 @@ mod tests {
                 threshold,
                 n_parties,
                 is_initiator,
+                false,
             ));
         }
 
