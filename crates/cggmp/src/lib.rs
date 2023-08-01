@@ -4,7 +4,7 @@ pub use self::{
     errors::Error, identity_auth::IdentityAuthentication, identity_rotation::IdentityRotation,
     key_refresh::AugmentedKeyRefresh, keygen::AugmentedKeyGen, quorum_approval::QuorumApproval,
     share_addition::ShareAddition, share_recovery_quorum::ShareRecoveryQuorum,
-    sign::AugmentedPreSigning, sign::AugmentedSigning,
+    share_removal::ShareRemoval, sign::AugmentedPreSigning, sign::AugmentedSigning,
 };
 
 #[macro_use]
@@ -19,4 +19,5 @@ mod keygen;
 mod quorum_approval;
 mod share_addition;
 mod share_recovery_quorum;
+mod share_removal;
 mod sign;
