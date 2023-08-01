@@ -109,19 +109,13 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedSigning<'a, I> 
             // Verifies the expected additional parameters from Round 1.
             // Round 2 of `cggmp-threshold-ecdsa` Signing is the Output phase,
             M::Round1(_) => match msg.body.extra.as_ref() {
-                Some(params) => {
-                    // Verifies that signer is a verified party.
-                    if !self.verified_parties.contains(&params.verifying_key) {
-                        return Err(Error::Core(wamu_core::Error::UnauthorizedParty));
-                    }
-                    // Verifies that the signature is valid.
-                    wamu_core::crypto::verify_signature(
-                        &params.verifying_key,
-                        &wamu_core::utils::prefix_message_bytes(self.message),
-                        &params.verifying_signature,
-                    )?;
-                    Ok(())
-                }
+                // Verifies that signer is an expected party/signatory and the signature is valid.
+                Some(params) => Ok(wamu_core::wrappers::verify_request_with_signature(
+                    self.message,
+                    &params.verifying_key,
+                    &params.verifying_signature,
+                    self.verified_parties,
+                )?),
                 // Returns an error if expected additional parameters are missing.
                 None => Err(Error::MissingParams {
                     bad_actors: vec![msg.sender as usize],
@@ -140,12 +134,17 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedSigning<'a, I> 
     {
         match msg_body.0 {
             // Adds additional parameters to Round 1 messages.
-            M::Round1(_) => Ok(Some(IdentityAuthParams {
-                verifying_key: self.identity_provider.verifying_key(),
-                verifying_signature: self
-                    .identity_provider
-                    .sign(&wamu_core::utils::prefix_message_bytes(self.message)),
-            })),
+            M::Round1(_) => {
+                let (verifying_key, verifying_signature) =
+                    wamu_core::wrappers::initiate_request_with_signature(
+                        self.message,
+                        self.identity_provider,
+                    );
+                Ok(Some(IdentityAuthParams {
+                    verifying_key,
+                    verifying_signature,
+                }))
+            }
             // No modifications for other rounds.
             _ => Ok(None),
         }

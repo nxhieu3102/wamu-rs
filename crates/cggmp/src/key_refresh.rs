@@ -164,21 +164,14 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyRefresh<'a, 
             M::Round1(out_msg_option) => {
                 if !self.existing_parties.contains(&msg.sender) {
                     match out_msg_option.as_ref().zip(msg.body.extra.as_ref()) {
+                        // Verifies that signer is an expected party/signatory and the signature is valid.
                         Some((out_msg, params)) => {
-                            // Verifies that signer is a verified party.
-                            if !self.verified_parties.contains(&params.verifying_key) {
-                                return Err(Error::Core(wamu_core::Error::UnauthorizedParty));
-                            }
-                            // Verifies that the signature is valid.
-                            wamu_core::crypto::verify_signature(
+                            Ok(wamu_core::wrappers::verify_request_with_signature(
+                                &Self::parameter_hash(msg.sender, InitiationMessage::Join(out_msg)),
                                 &params.verifying_key,
-                                &wamu_core::utils::prefix_message_bytes(&Self::parameter_hash(
-                                    msg.sender,
-                                    InitiationMessage::Join(out_msg),
-                                )),
                                 &params.verifying_signature,
-                            )?;
-                            Ok(())
+                                self.verified_parties,
+                            )?)
                         }
                         // Returns an error if expected additional parameters are missing for new parties.
                         None => Err(Error::MissingParams {
@@ -194,21 +187,17 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyRefresh<'a, 
             M::Round2(out_msg_option) => {
                 if self.existing_parties.contains(&msg.sender) {
                     match out_msg_option.as_ref().zip(msg.body.extra.as_ref()) {
+                        // Verifies that signer is an expected party/signatory and the signature is valid.
                         Some((out_msg, params)) => {
-                            // Verifies that signer is a verified party.
-                            if !self.verified_parties.contains(&params.verifying_key) {
-                                return Err(Error::Core(wamu_core::Error::UnauthorizedParty));
-                            }
-                            // Verifies that the signature is valid.
-                            wamu_core::crypto::verify_signature(
-                                &params.verifying_key,
-                                &wamu_core::utils::prefix_message_bytes(&Self::parameter_hash(
+                            Ok(wamu_core::wrappers::verify_request_with_signature(
+                                &Self::parameter_hash(
                                     msg.sender,
                                     InitiationMessage::Refresh(out_msg),
-                                )),
+                                ),
+                                &params.verifying_key,
                                 &params.verifying_signature,
-                            )?;
-                            Ok(())
+                                self.verified_parties,
+                            )?)
                         }
                         // Returns an error if expected additional parameters are missing for existing parties.
                         None => Err(Error::MissingParams {
@@ -233,14 +222,16 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyRefresh<'a, 
             // Adds additional parameters to Round 1 messages for new parties.
             M::Round1(it) => {
                 if !self.existing_parties.contains(&sender) {
-                    Ok(it.as_ref().map(|out_msg| IdentityAuthParams {
-                        verifying_key: self.identity_provider.verifying_key(),
-                        verifying_signature: self.identity_provider.sign(
-                            &wamu_core::utils::prefix_message_bytes(&Self::parameter_hash(
-                                sender,
-                                InitiationMessage::Join(out_msg),
-                            )),
-                        ),
+                    Ok(it.as_ref().map(|out_msg| {
+                        let (verifying_key, verifying_signature) =
+                            wamu_core::wrappers::initiate_request_with_signature(
+                                &Self::parameter_hash(sender, InitiationMessage::Join(out_msg)),
+                                self.identity_provider,
+                            );
+                        IdentityAuthParams {
+                            verifying_key,
+                            verifying_signature,
+                        }
                     }))
                 } else {
                     // No Round 1 augmentations expected for existing parties.
@@ -250,14 +241,16 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyRefresh<'a, 
             // Adds additional parameters to Round 2 messages for existing parties.
             M::Round2(it) => {
                 if self.existing_parties.contains(&sender) {
-                    Ok(it.as_ref().map(|out_msg| IdentityAuthParams {
-                        verifying_key: self.identity_provider.verifying_key(),
-                        verifying_signature: self.identity_provider.sign(
-                            &wamu_core::utils::prefix_message_bytes(&Self::parameter_hash(
-                                sender,
-                                InitiationMessage::Refresh(out_msg),
-                            )),
-                        ),
+                    Ok(it.as_ref().map(|out_msg| {
+                        let (verifying_key, verifying_signature) =
+                            wamu_core::wrappers::initiate_request_with_signature(
+                                &Self::parameter_hash(sender, InitiationMessage::Refresh(out_msg)),
+                                self.identity_provider,
+                            );
+                        IdentityAuthParams {
+                            verifying_key,
+                            verifying_signature,
+                        }
                     }))
                 } else {
                     // No Round 2 augmentations expected for new parties.
