@@ -5,6 +5,7 @@ pub use self::{
     key_refresh::AugmentedKeyRefresh, keygen::AugmentedKeyGen, quorum_approval::QuorumApproval,
     share_addition::ShareAddition, share_recovery_quorum::ShareRecoveryQuorum,
     share_removal::ShareRemoval, sign::AugmentedPreSigning, sign::AugmentedSigning,
+    threshold_modification::ThresholdModification,
 };
 
 #[macro_use]
@@ -21,3 +22,4 @@ mod share_addition;
 mod share_recovery_quorum;
 mod share_removal;
 mod sign;
+mod threshold_modification;
