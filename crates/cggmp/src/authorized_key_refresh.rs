@@ -1,4 +1,4 @@
-//! Types, traits, abstractions and utilities for authorized (i.e identity authenticated or quorum approved) key refresh.
+//! Types, traits, abstractions and utilities for authorized (i.e initiated by identity authentication or quorum approval) key refresh.
 //!
 //! NOTE: Used by share addition, share removal, threshold modification and share recovery with quorum protocols.
 
@@ -8,15 +8,16 @@ use wamu_core::IdentityProvider;
 use crate::key_refresh::AugmentedKeyRefresh;
 use crate::{IdentityAuthentication, QuorumApproval};
 
+/// A [`StateMachine`](StateMachine) that executes an authorization state machine (e.g. identity authenticated or quorum approved) and then a key refresh state machine in sequence.
 pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
-    /// The type of the initialization `StateMachine`.
+    /// The type of the authorization state machine.
     type InitStateMachineType: StateMachine;
 
-    /// Returns an immutable reference to the initialization state machine.
-    fn init_state_machine(&self) -> &Self::InitStateMachineType;
+    /// Returns an immutable reference to the authorization state machine.
+    fn auth_state_machine(&self) -> &Self::InitStateMachineType;
 
-    /// Returns a mutable reference to the initialization state machine.
-    fn init_state_machine_mut(&mut self) -> &mut Self::InitStateMachineType;
+    /// Returns a mutable reference to the authorization state machine.
+    fn auth_state_machine_mut(&mut self) -> &mut Self::InitStateMachineType;
 
     /// Returns an immutable reference to the key refresh state machine.
     fn refresh_state_machine(&self) -> Option<&AugmentedKeyRefresh<'a, I>>;
@@ -30,54 +31,22 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
     /// Returns an immutable reference to the composite message queue.
     fn composite_message_queue(
         &self,
-    ) -> &Vec<
-        Msg<
-            AuthorizedKeyRefreshMessage<
-                'a,
-                I,
-                <Self::InitStateMachineType as StateMachine>::MessageBody,
-            >,
-        >,
-    >;
+    ) -> &Vec<Msg<Message<'a, I, <Self::InitStateMachineType as StateMachine>::MessageBody>>>;
 
     /// Returns a mutable reference to the composite message queue.
     fn composite_message_queue_mut(
         &mut self,
-    ) -> &mut Vec<
-        Msg<
-            AuthorizedKeyRefreshMessage<
-                'a,
-                I,
-                <Self::InitStateMachineType as StateMachine>::MessageBody,
-            >,
-        >,
-    >;
+    ) -> &mut Vec<Msg<Message<'a, I, <Self::InitStateMachineType as StateMachine>::MessageBody>>>;
 
     /// Returns an immutable reference to an "out of order" message buffer.
     fn out_of_order_buffer(
         &self,
-    ) -> &Vec<
-        Msg<
-            AuthorizedKeyRefreshMessage<
-                'a,
-                I,
-                <Self::InitStateMachineType as StateMachine>::MessageBody,
-            >,
-        >,
-    >;
+    ) -> &Vec<Msg<Message<'a, I, <Self::InitStateMachineType as StateMachine>::MessageBody>>>;
 
     /// Returns a mutable reference to an "out of order" message buffer.
     fn out_of_order_buffer_mut(
         &mut self,
-    ) -> &mut Vec<
-        Msg<
-            AuthorizedKeyRefreshMessage<
-                'a,
-                I,
-                <Self::InitStateMachineType as StateMachine>::MessageBody,
-            >,
-        >,
-    >;
+    ) -> &mut Vec<Msg<Message<'a, I, <Self::InitStateMachineType as StateMachine>::MessageBody>>>;
 
     /// Returns an initialized key refresh state machine (if possible).
     fn create_key_refresh(
@@ -97,25 +66,25 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
         match self.refresh_state_machine_mut() {
             // Retrieves initialization phase messages.
             None => {
-                let new_messages = self.init_state_machine_mut().message_queue().split_off(0);
+                let new_messages = self.auth_state_machine_mut().message_queue().split_off(0);
                 if !new_messages.is_empty() {
                     // Update composite message queue.
-                    self.composite_message_queue_mut()
-                        .extend(&mut new_messages.into_iter().map(|msg| {
-                            msg.map_body(|msg_body| AuthorizedKeyRefreshMessage::Init(msg_body))
-                        }));
+                    self.composite_message_queue_mut().extend(
+                        &mut new_messages
+                            .into_iter()
+                            .map(|msg| msg.map_body(|msg_body| Message::Init(msg_body))),
+                    );
                 }
             }
             Some(refresh_state_machine) => {
                 let new_messages = refresh_state_machine.message_queue().split_off(0);
                 if !new_messages.is_empty() {
                     // Update composite message queue.
-                    self.composite_message_queue_mut()
-                        .extend(&mut new_messages.into_iter().map(|msg| {
-                            msg.map_body(|msg_body| {
-                                AuthorizedKeyRefreshMessage::Refresh(Box::new(msg_body))
-                            })
-                        }));
+                    self.composite_message_queue_mut().extend(
+                        &mut new_messages.into_iter().map(|msg| {
+                            msg.map_body(|msg_body| Message::Refresh(Box::new(msg_body)))
+                        }),
+                    );
                 }
             }
         }
@@ -129,7 +98,7 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
     fn perform_transition(
         &mut self,
     ) -> Result<(), Error<'a, I, <Self::InitStateMachineType as StateMachine>::Err>> {
-        if self.refresh_state_machine().is_none() && self.init_state_machine().is_finished() {
+        if self.refresh_state_machine().is_none() && self.auth_state_machine().is_finished() {
             // Create a key refresh state machine.
             let mut key_refresh = self.create_key_refresh()?;
 
@@ -137,7 +106,7 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
             let out_of_order_messages = self.out_of_order_buffer_mut().split_off(0);
             if !out_of_order_messages.is_empty() {
                 for msg in out_of_order_messages {
-                    if let AuthorizedKeyRefreshMessage::Refresh(msg_body) = msg.body {
+                    if let Message::Refresh(msg_body) = msg.body {
                         key_refresh.handle_incoming(Msg {
                             sender: msg.sender,
                             receiver: msg.receiver,
@@ -158,12 +127,14 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
     }
 }
 
+/// A generic authorized key refresh message.
 #[derive(Clone)]
-pub enum AuthorizedKeyRefreshMessage<'a, I: IdentityProvider, T> {
+pub enum Message<'a, I: IdentityProvider, T> {
     Init(T),
     Refresh(Box<<AugmentedKeyRefresh<'a, I> as StateMachine>::MessageBody>),
 }
 
+/// A generic authorized key refresh error.
 #[derive(Debug)]
 pub enum Error<'a, I: IdentityProvider, E> {
     Init(E),
@@ -194,7 +165,7 @@ impl<'a, I: IdentityProvider, E> From<<AugmentedKeyRefresh<'a, I> as StateMachin
 macro_rules! impl_state_machine_for_authorized_key_refresh {
     ($name:ident, $idx:ident, $n_parties:ident) => {
         impl<'a, I: IdentityProvider> StateMachine for $name<'a, I> {
-            type MessageBody = AuthorizedKeyRefreshMessage<
+            type MessageBody = Message<
                 'a,
                 I,
                 <<Self as AuthorizedKeyRefresh<'a, I>>::InitStateMachineType as StateMachine>::MessageBody,
@@ -206,9 +177,9 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
                 match msg.body {
                     // Initialization messages are forwarded to the initialization state machine if it's still active,
                     // otherwise an error is returned.
-                    AuthorizedKeyRefreshMessage::Init(id_msg) => match self.refresh_state_machine() {
+                    Message::Init(id_msg) => match self.refresh_state_machine() {
                         None => {
-                            self.init_state_machine_mut().handle_incoming(Msg {
+                            self.auth_state_machine_mut().handle_incoming(Msg {
                                 sender: msg.sender,
                                 receiver: msg.receiver,
                                 body: id_msg,
@@ -218,14 +189,14 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
                             self.out_of_order_buffer_mut().push(Msg {
                                 sender: msg.sender,
                                 receiver: msg.receiver,
-                                body: AuthorizedKeyRefreshMessage::Init(id_msg),
+                                body: Message::Init(id_msg),
                             });
                             return Err(Error::OutOfOrderMessage);
                         }
                     },
                     // Refresh messages are forwarded to the refresh state machine if it's active,
                     // otherwise an error is returned.
-                    AuthorizedKeyRefreshMessage::Refresh(refresh_msg) => {
+                    Message::Refresh(refresh_msg) => {
                         match self.refresh_state_machine_mut() {
                             Some(refresh_state_machine) => {
                                 refresh_state_machine.handle_incoming(Msg {
@@ -238,7 +209,7 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
                                 self.out_of_order_buffer_mut().push(Msg {
                                     sender: msg.sender,
                                     receiver: msg.receiver,
-                                    body: AuthorizedKeyRefreshMessage::Refresh(refresh_msg),
+                                    body: Message::Refresh(refresh_msg),
                                 });
                                 return Err(Error::OutOfOrderMessage);
                             }
@@ -260,7 +231,7 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
             fn wants_to_proceed(&self) -> bool {
                 // `wants_to_proceed` is forwarded to the active state machine.
                 match self.refresh_state_machine() {
-                    None => self.init_state_machine.wants_to_proceed(),
+                    None => self.auth_state_machine().wants_to_proceed(),
                     Some(refresh_state_machine) => refresh_state_machine.wants_to_proceed(),
                 }
             }
@@ -268,7 +239,7 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
             fn proceed(&mut self) -> Result<(), Self::Err> {
                 // `proceed` is forwarded to the active state machine.
                 match self.refresh_state_machine_mut() {
-                    None => self.init_state_machine_mut().proceed()?,
+                    None => self.auth_state_machine_mut().proceed()?,
                     Some(refresh_state_machine) => refresh_state_machine.proceed()?,
                 }
 
@@ -289,7 +260,7 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
 
             fn is_finished(&self) -> bool {
                 // Is finished is true if both state machines are finished.
-                self.init_state_machine().is_finished()
+                self.auth_state_machine().is_finished()
                     && self
                         .refresh_state_machine()
                         .map_or(false, |refresh_state_machine| {
@@ -309,9 +280,9 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
             fn current_round(&self) -> u16 {
                 // Computes current round as an aggregate based on active state machine.
                 match self.refresh_state_machine() {
-                    None => self.init_state_machine().current_round(),
+                    None => self.auth_state_machine().current_round(),
                     Some(refresh_state_machine) => {
-                        self.init_state_machine().total_rounds().unwrap_or(0)
+                        self.auth_state_machine().total_rounds().unwrap_or(0)
                             + refresh_state_machine.current_round()
                     }
                 }
@@ -335,15 +306,15 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
 /// Implements all required `AuthorizedKeyRefresh` getters.
 ///
 /// Requires names of the associated fields
-/// (.ie the initialization and key refresh `StateMachine` and the composite message queue).
+/// (.ie the authorization and key refresh `StateMachine` and the composite message queue).
 macro_rules! impl_required_authorized_key_refresh_getters {
-    ($init_state_machine:ident, $refresh_state_machine:ident, $message_queue:ident, $out_of_order_buffer:ident) => {
-        fn init_state_machine(&self) -> &Self::InitStateMachineType {
-            &self.$init_state_machine
+    ($auth_state_machine:ident, $refresh_state_machine:ident, $message_queue:ident, $out_of_order_buffer:ident) => {
+        fn auth_state_machine(&self) -> &Self::InitStateMachineType {
+            &self.$auth_state_machine
         }
 
-        fn init_state_machine_mut(&mut self) -> &mut Self::InitStateMachineType {
-            &mut self.$init_state_machine
+        fn auth_state_machine_mut(&mut self) -> &mut Self::InitStateMachineType {
+            &mut self.$auth_state_machine
         }
 
         fn refresh_state_machine(&self) -> Option<&AugmentedKeyRefresh<'a, I>> {
@@ -362,7 +333,7 @@ macro_rules! impl_required_authorized_key_refresh_getters {
             &self,
         ) -> &Vec<
             Msg<
-                AuthorizedKeyRefreshMessage<
+                Message<
                     'a,
                     I,
                     <Self::InitStateMachineType as StateMachine>::MessageBody,
@@ -376,7 +347,7 @@ macro_rules! impl_required_authorized_key_refresh_getters {
             &mut self,
         ) -> &mut Vec<
             Msg<
-                AuthorizedKeyRefreshMessage<
+                Message<
                     'a,
                     I,
                     <Self::InitStateMachineType as StateMachine>::MessageBody,
@@ -390,7 +361,7 @@ macro_rules! impl_required_authorized_key_refresh_getters {
             &self,
         ) -> &Vec<
             Msg<
-                AuthorizedKeyRefreshMessage<
+                Message<
                     'a,
                     I,
                     <Self::InitStateMachineType as StateMachine>::MessageBody,
@@ -404,7 +375,7 @@ macro_rules! impl_required_authorized_key_refresh_getters {
             &mut self,
         ) -> &mut Vec<
             Msg<
-                AuthorizedKeyRefreshMessage<
+                Message<
                     'a,
                     I,
                     <Self::InitStateMachineType as StateMachine>::MessageBody,
@@ -435,9 +406,9 @@ from_state_machine_error! {
     QuorumApproval,
 }
 
-// Implement `Debug` trait for `AuthorizedKeyRefreshMessage` for test simulations.
+// Implement `Debug` trait for `Message` for test simulations.
 #[cfg(test)]
-impl<'a, I: IdentityProvider, T> std::fmt::Debug for AuthorizedKeyRefreshMessage<'a, I, T> {
+impl<'a, I: IdentityProvider, T> std::fmt::Debug for Message<'a, I, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Authorized Key Refresh Message")
     }

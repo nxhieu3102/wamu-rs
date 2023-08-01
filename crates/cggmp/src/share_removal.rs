@@ -10,7 +10,7 @@ use std::time::Duration;
 use wamu_core::crypto::VerifyingKey;
 use wamu_core::{IdentityProvider, SigningShare, SubShare};
 
-use crate::authorized_key_refresh::{AuthorizedKeyRefresh, AuthorizedKeyRefreshMessage, Error};
+use crate::authorized_key_refresh::{AuthorizedKeyRefresh, Error, Message};
 use crate::key_refresh::AugmentedKeyRefresh;
 use crate::quorum_approval;
 use crate::quorum_approval::QuorumApproval;
@@ -43,13 +43,13 @@ pub struct ShareRemoval<'a, I: IdentityProvider> {
 
     // State machine management.
     /// Outgoing message queue.
-    message_queue: Vec<Msg<AuthorizedKeyRefreshMessage<'a, I, quorum_approval::Message>>>,
+    message_queue: Vec<Msg<Message<'a, I, quorum_approval::Message>>>,
     /// Quorum approval state machine (must succeed before key refresh is performed).
-    init_state_machine: QuorumApproval<'a, I>,
+    auth_state_machine: QuorumApproval<'a, I>,
     /// Key refresh state machine (activated after successful quorum approval).
     refresh_state_machine: Option<AugmentedKeyRefresh<'a, I>>,
     /// Stores "out of order" messages.
-    out_of_order_buffer: Vec<Msg<AuthorizedKeyRefreshMessage<'a, I, quorum_approval::Message>>>,
+    out_of_order_buffer: Vec<Msg<Message<'a, I, quorum_approval::Message>>>,
 }
 
 impl<'a, I: IdentityProvider> ShareRemoval<'a, I> {
@@ -67,7 +67,7 @@ impl<'a, I: IdentityProvider> ShareRemoval<'a, I> {
     ) -> Result<ShareRemoval<'a, I>, Error<'a, I, <QuorumApproval<'a, I> as StateMachine>::Err>>
     {
         // Initializes quorum approval state machine.
-        let init_state_machine = QuorumApproval::new(
+        let auth_state_machine = QuorumApproval::new(
             SHARE_REMOVAL,
             identity_provider,
             verified_parties,
@@ -92,7 +92,7 @@ impl<'a, I: IdentityProvider> ShareRemoval<'a, I> {
             old_to_new_map,
             // State machine management.
             message_queue: Vec::new(),
-            init_state_machine,
+            auth_state_machine,
             refresh_state_machine: None,
             out_of_order_buffer: Vec::new(),
         };
@@ -109,7 +109,7 @@ impl<'a, I: IdentityProvider> AuthorizedKeyRefresh<'a, I> for ShareRemoval<'a, I
     type InitStateMachineType = QuorumApproval<'a, I>;
 
     impl_required_authorized_key_refresh_getters!(
-        init_state_machine,
+        auth_state_machine,
         refresh_state_machine,
         message_queue,
         out_of_order_buffer
@@ -150,7 +150,7 @@ impl<'a, I: IdentityProvider> std::fmt::Debug for ShareRemoval<'a, I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::aug_state_machine::{AugmentedType, SubShareOutput};
+    use crate::augmented_state_machine::{AugmentedType, SubShareOutput};
     use crate::keygen::tests::simulate_key_gen;
     use curv::elliptic::curves::Scalar;
     use round_based::dev::Simulation;

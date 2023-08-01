@@ -16,11 +16,11 @@ use std::time::Duration;
 use wamu_core::crypto::VerifyingKey;
 use wamu_core::{IdentityProvider, SigningShare, SubShare};
 
-use crate::aug_state_machine;
-use crate::aug_state_machine::{
+use crate::augmented_state_machine;
+use crate::augmented_state_machine::Error;
+use crate::augmented_state_machine::{
     AugmentedStateMachine, AugmentedType, IdentityAuthParams, SubShareOutput,
 };
-use crate::errors::Error;
 
 /// A wrapper around the [`cggmp-threshold-ecdsa` Key Refresh StateMachine](https://github.com/webb-tools/cggmp-threshold-ecdsa/blob/main/src/refresh/state_machine.rs) that [augments key refresh as described by the Wamu protocol](https://wamu.tech/specification#key-refresh).
 pub struct AugmentedKeyRefresh<'a, I: IdentityProvider> {
@@ -274,7 +274,7 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyRefresh<'a, 
         AugmentedType<<Self::StateMachineType as StateMachine>::Output, Self::AdditionalOutput>,
         Error<<Self::StateMachineType as StateMachine>::Err>,
     > {
-        Ok(aug_state_machine::split_key_output(
+        Ok(augmented_state_machine::split_key_output(
             self.identity_provider,
             output,
         )?)

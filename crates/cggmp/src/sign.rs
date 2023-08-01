@@ -16,8 +16,8 @@ use std::time::Duration;
 use wamu_core::crypto::VerifyingKey;
 use wamu_core::{IdentityProvider, SigningShare, SubShare};
 
-use crate::aug_state_machine::{AugmentedStateMachine, AugmentedType, IdentityAuthParams};
-use crate::errors::Error;
+use crate::augmented_state_machine::Error;
+use crate::augmented_state_machine::{AugmentedStateMachine, AugmentedType, IdentityAuthParams};
 
 /// A wrapper around the [`cggmp-threshold-ecdsa` Signing StateMachine](https://github.com/webb-tools/cggmp-threshold-ecdsa/blob/main/src/sign/state_machine.rs) that [augments signing as described by the Wamu protocol](https://wamu.tech/specification#signing).
 pub struct AugmentedSigning<'a, I: IdentityProvider> {
@@ -262,7 +262,7 @@ impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedPreSigning<'a, I> {
 
 #[cfg(test)]
 pub mod tests {
-    use crate::aug_state_machine::SubShareOutput;
+    use crate::augmented_state_machine::SubShareOutput;
     use cggmp_threshold_ecdsa::sign::SigningOutput;
     use cggmp_threshold_ecdsa::utilities::sha2::Sha256;
     use curv::arithmetic::traits::{Modulo, One, Samplable};

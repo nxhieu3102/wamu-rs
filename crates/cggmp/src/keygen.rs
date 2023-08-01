@@ -11,11 +11,11 @@ use std::time::Duration;
 use wamu_core::crypto::VerifyingKey;
 use wamu_core::IdentityProvider;
 
-use crate::aug_state_machine;
-use crate::aug_state_machine::{
+use crate::augmented_state_machine;
+use crate::augmented_state_machine::Error;
+use crate::augmented_state_machine::{
     AugmentedStateMachine, AugmentedType, IdentityAuthParams, SubShareOutput,
 };
-use crate::errors::Error;
 
 /// A wrapper around the [`cggmp-threshold-ecdsa` Key Generation StateMachine](https://github.com/ZenGo-X/multi-party-ecdsa/blob/master/src/protocols/multi_party_ecdsa/gg_2020/state_machine/keygen.rs) that [augments key generation as described by the Wamu protocol](https://wamu.tech/specification#key-generation).
 pub struct AugmentedKeyGen<'a, I: IdentityProvider> {
@@ -142,7 +142,7 @@ impl<'a, I: IdentityProvider> AugmentedStateMachine for AugmentedKeyGen<'a, I> {
         AugmentedType<<Self::StateMachineType as StateMachine>::Output, Self::AdditionalOutput>,
         Error<<Self::StateMachineType as StateMachine>::Err>,
     > {
-        Ok(aug_state_machine::split_key_output(
+        Ok(augmented_state_machine::split_key_output(
             self.identity_provider,
             output,
         )?)
