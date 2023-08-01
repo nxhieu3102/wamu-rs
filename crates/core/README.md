@@ -6,7 +6,7 @@ It implements the core sub-protocols (i.e. share splitting and reconstruction, i
 
 ## ⚠️ Security Warning
 
-**This crate is pre-alpha software developed as a PoC (Proof of Concept) for the [Wamu protocol](https://wamu.tech/specification).
+**This crate is pre-alpha software developed as a PoC (Proof of Concept) of the [Wamu protocol](https://wamu.tech/specification).
 It has NOT been independently audited and/or rigorously tested yet!
 It SHOULD NOT BE USED IN PRODUCTION!**
 

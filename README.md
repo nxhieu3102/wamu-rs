@@ -4,7 +4,7 @@ A collection of modular [Rust](https://www.rust-lang.org/) libraries for impleme
 
 ## ⚠️ Security Warning
 
-**All crates in this repository are pre-alpha software developed as PoCs (Proofs of Concept) for the [Wamu protocol](https://wamu.tech/specification).
+**All crates in this repository are pre-alpha software developed as PoCs (Proofs of Concept) of the [Wamu protocol](https://wamu.tech/specification).
 They have NOT been independently audited and/or rigorously tested yet! 
 They SHOULD NOT BE USED IN PRODUCTION!**
 

@@ -6,11 +6,26 @@ It uses the [Wamu Core (wamu-core)](https://github.com/wamutech/wamu-rs/tree/mas
 
 ## ⚠️ Security Warning
 
-**This crate is pre-alpha software developed as a PoC (Proof of Concept) for the [Wamu protocol](https://wamu.tech/specification).
+**This crate is pre-alpha software developed as a PoC (Proof of Concept) of the [Wamu protocol](https://wamu.tech/specification).
 It has NOT been independently audited and/or rigorously tested yet!
 It SHOULD NOT BE USED IN PRODUCTION!**
 
 **NOTE:** 🚧 This project is still work in progress, check back over the next few weeks for regular updates.
+
+## Implementation
+
+This crate is a PoC (Proof of Concept) implementation of the [Wamu protocol](https://wamu.tech/specification) and uses a [fork](https://github.com/davidsemakula/cggmp-threshold-ecdsa/tree/wamu) of [Webb tool's cggmp-threshold-ecdsa](https://github.com/webb-tools/cggmp-threshold-ecdsa) crate for the [CGGMP20](https://eprint.iacr.org/2021/060.pdf) implementation with the following modifications/additions:
+
+- [Fixes for/completion of the CGGMP20 pre-signing protocol](https://github.com/davidsemakula/cggmp-threshold-ecdsa/commit/e7971848e6a1878dfa10cae984b5d09de757ef89).
+- [Support for threshold modification during the key refresh protocol](https://github.com/davidsemakula/cggmp-threshold-ecdsa/commit/4cc57099e3a86886cf1b62cb1ef1fda2817d2343).
+  - This also required [modifications/additions to the FS-DKR library](https://github.com/davidsemakula/fs-dkr/commit/4414f386ceb2a7d84f5d685a911e0708ecff2808) which `cggmp-threshold-ecdsa` uses on for key refresh implementation which are made in a [fork of FS-DKR](https://github.com/davidsemakula/fs-dkr/commits/wamu).
+- Minor public interface changes to `pub` relevant fields required for augmentation.
+
+### PoC implementation specific limitations and deviations from CGGMP20 
+
+- Due to reliance on `cggmp-threshold-ecdsa` which uses [FS-DKR (which assumes an honest majority)](https://github.com/webb-tools/fs-dkr#our-model) for the key refresh implementation, key refresh and related protocols (i.e. share addition, share removal, threshold modification and share recovery with quorum) all operate in an honest majority setting (i.e. threshold must be at least half the number of parties).
+- Due to reliance on `cggmp-threshold-ecdsa` (and [round-based-protocol](https://github.com/ZenGo-X/round-based-protocol)), state machine implementations use/require `u16` party identifiers instead of using decentralized verifying keys/addresses for the same purpose.
+- Only 4-round $O(n^2)$ with identifiable abort version of CGGMP20 signing is implemented.
 
 ## Installation
 
