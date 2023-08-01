@@ -51,6 +51,8 @@ pub struct ShareRecoveryQuorum<'a, I: IdentityProvider> {
     init_state_machine: IdentityAuthentication<'a, I>,
     /// Key refresh state machine (activated after successful identity authentication).
     refresh_state_machine: Option<AugmentedKeyRefresh<'a, I>>,
+    /// Stores "out of order" messages.
+    out_of_order_buffer: Vec<Msg<AuthorizedKeyRefreshMessage<'a, I, identity_auth::Message>>>,
 }
 
 impl<'a, I: IdentityProvider> ShareRecoveryQuorum<'a, I> {
@@ -108,6 +110,7 @@ impl<'a, I: IdentityProvider> ShareRecoveryQuorum<'a, I> {
             message_queue: Vec::new(),
             init_state_machine,
             refresh_state_machine: None,
+            out_of_order_buffer: Vec::new(),
         };
 
         // Retrieves messages from immediate state transitions (if any) and wraps them.
@@ -124,35 +127,30 @@ impl<'a, I: IdentityProvider> AuthorizedKeyRefresh<'a, I> for ShareRecoveryQuoru
     impl_required_authorized_key_refresh_getters!(
         init_state_machine,
         refresh_state_machine,
-        message_queue
+        message_queue,
+        out_of_order_buffer
     );
 
-    /// Initializes party for the key refresh protocol (if necessary).
-    fn init_key_refresh(&mut self) -> Result<(), <Self as StateMachine>::Err> {
-        if self.refresh_state_machine.is_none() {
-            // Initializes key refresh state machine.
-            let is_initiator = self.local_key_option.is_none();
-            let key_refresh = AugmentedKeyRefresh::new(
-                self.signing_share_option,
-                self.sub_share_option,
-                self.identity_provider,
-                self.verified_parties,
-                self.local_key_option.take(),
-                is_initiator.then_some(self.idx),
-                self.old_to_new_map,
-                self.threshold,
-                self.n_parties,
-                is_initiator.then_some(self.threshold),
-            )?;
-
-            // Sets key refresh as the active state machine.
-            self.refresh_state_machine = Some(key_refresh);
-
-            // Retrieves messages from immediate state transitions (if any) and wraps them.
-            self.update_composite_message_queue()?;
-        }
-
-        Ok(())
+    fn create_key_refresh(
+        &mut self,
+    ) -> Result<
+        AugmentedKeyRefresh<'a, I>,
+        Error<'a, I, <Self::InitStateMachineType as StateMachine>::Err>,
+    > {
+        // Initializes key refresh state machine.
+        let is_initiator = self.local_key_option.is_none();
+        Ok(AugmentedKeyRefresh::new(
+            self.signing_share_option,
+            self.sub_share_option,
+            self.identity_provider,
+            self.verified_parties,
+            self.local_key_option.take(),
+            is_initiator.then_some(self.idx),
+            self.old_to_new_map,
+            self.threshold,
+            self.n_parties,
+            is_initiator.then_some(self.threshold),
+        )?)
     }
 }
 

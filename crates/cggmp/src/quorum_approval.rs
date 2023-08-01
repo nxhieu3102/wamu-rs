@@ -189,15 +189,15 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
                     self.command_approvals.contains_key(&self.idx)
                 }
             }
-            // Initiating party needs to receive challenge fragments from all other parties (i.e n_parties - 1),
-            // while other parties need receive challenge fragments from all other parties except the initiating party and themselves (i.e n_parties - 2).
+            // Initiating party needs to receive challenge fragments from at least the threshold (i.e >= threshold) since its also an approval (i.e quorum size = threshold + 1),
+            // while other parties need to receive challenge fragments from at least the threshold - 1 (i.e >= threshold - 1) since they can be the final approval.
             Round::Two => {
                 self.command_approvals.len()
-                    == self.n_parties as usize
+                    >= self.threshold as usize
                         - if self.is_initiator || self.is_dormant {
-                            1
+                            0
                         } else {
-                            2
+                            1
                         }
             }
             // Initiating party is immediately ready to proceed from Round 3 after initialization,
@@ -209,15 +209,15 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
                     self.verification_outcome.is_some()
                 }
             }
-            // Initiating party needs to receive outcomes from all other parties (i.e n_parties - 1),
-            // while other parties need receive outcomes from all other parties except the initiating party and themselves (i.e n_parties - 2).
+            // Initiating party needs to receive outcomes from at least the threshold (i.e >= threshold) since its also an approval (i.e quorum size = threshold + 1),
+            // while other parties need to receive outcomes from at least the threshold - 1 (i.e >= threshold - 1) since they can be the final approval.
             Round::Four => {
-                self.received_verification_outcomes.len()
-                    == self.n_parties as usize
+                self.command_approvals.len()
+                    >= self.threshold as usize
                         - if self.is_initiator || self.is_dormant {
-                            1
+                            0
                         } else {
-                            2
+                            1
                         }
             }
             // The protocol is completed at this point and output should be picked.
@@ -236,26 +236,44 @@ impl<'a, I: IdentityProvider> StateMachine for QuorumApproval<'a, I> {
                 // Only the initiating party needs to respond to the challenge.
                 if self.is_initiator {
                     let request = self.request.as_ref().ok_or(Error::InvalidState)?;
-                    let quorum_challenge_response =
-                        wamu_core::quorum_approved_request::challenge_response(
-                            &self
-                                .command_approvals
-                                .values()
-                                .cloned()
-                                .collect::<Vec<CommandApprovalPayload>>(),
-                            self.identity_provider,
-                            request,
-                            self.threshold as usize, // In this case threshold is enough since the initiator is an implicit approval.
-                            self.verified_parties,
-                        )?;
-                    self.message_queue.push(Msg {
-                        sender: self.idx,
-                        receiver: None,
-                        body: Message::Round3(quorum_challenge_response),
-                    })
+                    let result = wamu_core::quorum_approved_request::challenge_response(
+                        &self
+                            .command_approvals
+                            .values()
+                            .cloned()
+                            .collect::<Vec<CommandApprovalPayload>>(),
+                        self.identity_provider,
+                        request,
+                        self.threshold as usize + 1, // quorum size = threshold + 1.
+                        self.verified_parties,
+                    );
+                    match result {
+                        Ok(quorum_challenge_response) => {
+                            // Moves on to the next round if the quorum challenge response was verified successfully.
+                            self.round = Round::Three;
+                            self.message_queue.push(Msg {
+                                sender: self.idx,
+                                receiver: None,
+                                body: Message::Round3(quorum_challenge_response),
+                            });
+                        }
+                        Err(error) => {
+                            // Keep try if there aren't enough approvals but messages haven't been received from all parties, otherwise return an error.
+                            return if matches!(
+                                error,
+                                QuorumApprovedRequestError::InsufficientApprovals
+                            ) && self.command_approvals.len() < self.n_parties as usize
+                            {
+                                Ok(())
+                            } else {
+                                Err(Error::Quorum(error))
+                            };
+                        }
+                    }
+                } else {
+                    // Everyone else moves on to the next round.
+                    self.round = Round::Three;
                 }
-                // Everyone moves on to the next round.
-                self.round = Round::Three;
             }
             // Round 3 is handled by `handle_incoming` or during initialization for the initiating party.
             Round::Three => {
@@ -438,10 +456,26 @@ mod tests {
     fn quorum_approval_works() {
         let threshold = 2;
         let n_parties = 4;
+        let n_participants = 3;
         let initiating_party_idx = 2u16;
 
+        // Verifies parameter invariants.
+        assert!(threshold >= 1, "minimum threshold is one");
+        assert!(
+            n_parties > threshold,
+            "threshold must be less than the total number of parties"
+        );
+        assert!(
+            n_participants > threshold,
+            "number of participants must be a valid quorum, quorum size = threshold + 1"
+        );
+        assert!(
+            n_parties >= n_participants,
+            "number of participants must be less than or equal to the total number of parties"
+        );
+
         // Creates identity providers for all other parties.
-        let identity_providers: Vec<MockECDSAIdentityProvider> = (1..=n_parties)
+        let identity_providers: Vec<MockECDSAIdentityProvider> = (1..=n_participants)
             .map(|_| MockECDSAIdentityProvider::generate())
             .collect();
 
@@ -457,7 +491,7 @@ mod tests {
         let results = simulate_quorum_approval(party_key_configs, threshold, n_parties);
 
         // Verifies the outcome for all parties.
-        assert_eq!(results.len(), n_parties as usize);
+        assert_eq!(results.len(), n_participants as usize);
         for outcome in results {
             assert!(outcome);
         }

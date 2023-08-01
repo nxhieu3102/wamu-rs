@@ -18,11 +18,14 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
     /// Returns a mutable reference to the initialization state machine.
     fn init_state_machine_mut(&mut self) -> &mut Self::InitStateMachineType;
 
-    /// Returns an immutable reference to the initialization state machine.
+    /// Returns an immutable reference to the key refresh state machine.
     fn refresh_state_machine(&self) -> Option<&AugmentedKeyRefresh<'a, I>>;
 
-    /// Returns a mutable reference to the initialization state machine.
+    /// Returns a mutable reference to the key refresh state machine.
     fn refresh_state_machine_mut(&mut self) -> Option<&mut AugmentedKeyRefresh<'a, I>>;
+
+    /// Sets the key refresh state machine.
+    fn set_refresh_state_machine(&mut self, state_machine: AugmentedKeyRefresh<'a, I>);
 
     /// Returns an immutable reference to the composite message queue.
     fn composite_message_queue(
@@ -50,14 +53,47 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
         >,
     >;
 
-    /// Initializes party for the key refresh protocol (if necessary).
-    fn init_key_refresh(&mut self) -> Result<(), <Self as StateMachine>::Err>;
+    /// Returns an immutable reference to an "out of order" message buffer.
+    fn out_of_order_buffer(
+        &self,
+    ) -> &Vec<
+        Msg<
+            AuthorizedKeyRefreshMessage<
+                'a,
+                I,
+                <Self::InitStateMachineType as StateMachine>::MessageBody,
+            >,
+        >,
+    >;
+
+    /// Returns a mutable reference to an "out of order" message buffer.
+    fn out_of_order_buffer_mut(
+        &mut self,
+    ) -> &mut Vec<
+        Msg<
+            AuthorizedKeyRefreshMessage<
+                'a,
+                I,
+                <Self::InitStateMachineType as StateMachine>::MessageBody,
+            >,
+        >,
+    >;
+
+    /// Returns an initialized key refresh state machine (if possible).
+    fn create_key_refresh(
+        &mut self,
+    ) -> Result<
+        AugmentedKeyRefresh<'a, I>,
+        Error<'a, I, <Self::InitStateMachineType as StateMachine>::Err>,
+    >;
 
     /// Updates the composite message queue by
     /// retrieving the message queue from the currently active wrapped state machines (i.e initialization or key refresh).
     ///
     /// **NOTE:** This method is called at the end of both [`handle_incoming`](StateMachine::handle_incoming) and [`proceed`](StateMachine::proceed).
-    fn update_composite_message_queue(&mut self) -> Result<(), <Self as StateMachine>::Err> {
+    fn update_composite_message_queue(
+        &mut self,
+    ) -> Result<(), Error<'a, I, <Self::InitStateMachineType as StateMachine>::Err>> {
         match self.refresh_state_machine_mut() {
             // Retrieves initialization phase messages.
             None => {
@@ -90,9 +126,32 @@ pub trait AuthorizedKeyRefresh<'a, I: IdentityProvider + 'a>: StateMachine {
     /// Transitions to the key refresh state machine if the initialization state machine is finished and the key refresh state machine is not yet active.
     ///
     /// **NOTE:** This method is called at the end of both [`handle_incoming`](StateMachine::handle_incoming) and [`proceed`](StateMachine::proceed).
-    fn perform_transition(&mut self) -> Result<(), <Self as StateMachine>::Err> {
+    fn perform_transition(
+        &mut self,
+    ) -> Result<(), Error<'a, I, <Self::InitStateMachineType as StateMachine>::Err>> {
         if self.refresh_state_machine().is_none() && self.init_state_machine().is_finished() {
-            self.init_key_refresh()?;
+            // Create a key refresh state machine.
+            let mut key_refresh = self.create_key_refresh()?;
+
+            // Forwards any "out of order" refresh messages to the key refresh state machine.
+            let out_of_order_messages = self.out_of_order_buffer_mut().split_off(0);
+            if !out_of_order_messages.is_empty() {
+                for msg in out_of_order_messages {
+                    if let AuthorizedKeyRefreshMessage::Refresh(msg_body) = msg.body {
+                        key_refresh.handle_incoming(Msg {
+                            sender: msg.sender,
+                            receiver: msg.receiver,
+                            body: *msg_body,
+                        })?;
+                    }
+                }
+            }
+
+            // Sets key refresh as the active state machine.
+            self.set_refresh_state_machine(key_refresh);
+
+            // Retrieves messages from state transitions (if any) and wraps them.
+            self.update_composite_message_queue()?;
         }
 
         Ok(())
@@ -116,7 +175,8 @@ pub enum Error<'a, I: IdentityProvider, E> {
 
 impl<'a, I: IdentityProvider, E> IsCritical for Error<'a, I, E> {
     fn is_critical(&self) -> bool {
-        true
+        // Out of order messages are not critical errors, while all other errors are critical.
+        !matches!(self, Error::OutOfOrderMessage)
     }
 }
 
@@ -155,6 +215,11 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
                             })?;
                         }
                         Some(_) => {
+                            self.out_of_order_buffer_mut().push(Msg {
+                                sender: msg.sender,
+                                receiver: msg.receiver,
+                                body: AuthorizedKeyRefreshMessage::Init(id_msg),
+                            });
                             return Err(Error::OutOfOrderMessage);
                         }
                     },
@@ -170,6 +235,11 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
                                 })?;
                             }
                             None => {
+                                self.out_of_order_buffer_mut().push(Msg {
+                                    sender: msg.sender,
+                                    receiver: msg.receiver,
+                                    body: AuthorizedKeyRefreshMessage::Refresh(refresh_msg),
+                                });
                                 return Err(Error::OutOfOrderMessage);
                             }
                         }
@@ -267,7 +337,7 @@ macro_rules! impl_state_machine_for_authorized_key_refresh {
 /// Requires names of the associated fields
 /// (.ie the initialization and key refresh `StateMachine` and the composite message queue).
 macro_rules! impl_required_authorized_key_refresh_getters {
-    ($init_state_machine:ident, $refresh_state_machine:ident, $message_queue:ident) => {
+    ($init_state_machine:ident, $refresh_state_machine:ident, $message_queue:ident, $out_of_order_buffer:ident) => {
         fn init_state_machine(&self) -> &Self::InitStateMachineType {
             &self.$init_state_machine
         }
@@ -282,6 +352,10 @@ macro_rules! impl_required_authorized_key_refresh_getters {
 
         fn refresh_state_machine_mut(&mut self) -> Option<&mut AugmentedKeyRefresh<'a, I>> {
             self.$refresh_state_machine.as_mut()
+        }
+
+        fn set_refresh_state_machine(&mut self, state_machine: AugmentedKeyRefresh<'a, I>) {
+            self.$refresh_state_machine = Some(state_machine);
         }
 
         fn composite_message_queue(
@@ -310,6 +384,34 @@ macro_rules! impl_required_authorized_key_refresh_getters {
             >,
         > {
             self.$message_queue.as_mut()
+        }
+
+        fn out_of_order_buffer(
+            &self,
+        ) -> &Vec<
+            Msg<
+                AuthorizedKeyRefreshMessage<
+                    'a,
+                    I,
+                    <Self::InitStateMachineType as StateMachine>::MessageBody,
+                >,
+            >,
+        > {
+            &self.$out_of_order_buffer
+        }
+
+        fn out_of_order_buffer_mut(
+            &mut self,
+        ) -> &mut Vec<
+            Msg<
+                AuthorizedKeyRefreshMessage<
+                    'a,
+                    I,
+                    <Self::InitStateMachineType as StateMachine>::MessageBody,
+                >,
+            >,
+        > {
+            self.$out_of_order_buffer.as_mut()
         }
     };
 }
