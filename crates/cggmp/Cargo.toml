@@ -9,7 +9,7 @@ authors = ["David Semakula <hello@davidsemakula.com>"]
 readme = "README.md"
 repository = "https://github.com/wamutech/wamu-rs"
 homepage = "https://wamu.tech/"
-keywords = ["threshold-cryptography", "threshold-signature", "multi-party-computation", "mpc", "cggmp"]
+keywords = ["threshold-signature", "mpc", "cggmp"]
 categories = ["cryptography"]
 
 [dependencies]
