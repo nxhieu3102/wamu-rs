@@ -61,6 +61,14 @@ impl IdentityProvider for MockECDSAIdentityProvider {
     }
 }
 
+impl MockECDSAIdentityProvider {
+    /// Returns the byte representation of the secret key.
+    // Used only for testing and demos.
+    pub fn export(&self) -> Vec<u8> {
+        self.secret.to_bytes().to_vec()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

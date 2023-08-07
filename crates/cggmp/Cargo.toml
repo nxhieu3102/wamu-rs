@@ -38,3 +38,16 @@ default-features = false
 [dev-dependencies]
 wamu-core = { path = "../core", version = "0.1", features = ["dev"] }
 round-based = { version = "0.1.7", features = ["dev"] }
+clap = { version = "4.3.17", features = ["derive"] }
+
+[features]
+default = []
+# Exposes utilities for testing.
+dev = []
+
+[package.metadata.docs.rs]
+all-features = true
+
+[[example]]
+name = "cli"
+required-features = ["dev"]

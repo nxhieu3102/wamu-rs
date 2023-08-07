@@ -400,7 +400,7 @@ impl IsCritical for Error {
 }
 
 // Implement `Debug` trait for `QuorumApproval` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for QuorumApproval<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Quorum Approval")

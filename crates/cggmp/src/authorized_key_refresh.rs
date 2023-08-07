@@ -407,7 +407,7 @@ from_state_machine_error! {
 }
 
 // Implement `Debug` trait for `Message` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider, T> std::fmt::Debug for Message<'a, I, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Authorized Key Refresh Message")

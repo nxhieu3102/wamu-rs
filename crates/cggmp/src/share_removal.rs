@@ -140,20 +140,21 @@ impl<'a, I: IdentityProvider> AuthorizedKeyRefresh<'a, I> for ShareRemoval<'a, I
 impl_state_machine_for_authorized_key_refresh!(ShareRemoval, idx, n_parties);
 
 // Implement `Debug` trait for `ShareRemoval` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for ShareRemoval<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Share Addition")
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "dev"))]
+pub mod tests {
     use super::*;
     use crate::augmented_state_machine::{AugmentedType, SubShareOutput};
-    use crate::keygen::tests::simulate_key_gen;
+    use crate::keygen::tests::simulate_keygen;
     use curv::elliptic::curves::Scalar;
     use round_based::dev::Simulation;
+    use wamu_core::test_utils::MockECDSAIdentityProvider;
 
     pub fn simulate_share_removal(
         // Party key configs including the "signing share", "sub-share", identity provider and
@@ -200,13 +201,21 @@ mod tests {
         simulation.run().unwrap()
     }
 
-    #[test]
-    fn share_removal_works() {
-        let threshold = 2;
-        let n_parties_init = 5;
-        let n_parties_new = 4;
-        let initiating_party_idx = 2u16;
-
+    pub fn generate_parties_and_simulate_share_removal(
+        threshold: u16,
+        n_parties_init: u16,
+        n_parties_new: u16,
+        initiating_party_idx: u16,
+    ) -> (
+        (
+            Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+            Vec<MockECDSAIdentityProvider>,
+        ),
+        (
+            Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+            Vec<MockECDSAIdentityProvider>,
+        ),
+    ) {
         // Verifies parameter invariants.
         assert!(threshold >= 1, "minimum threshold is one");
         assert!(
@@ -223,24 +232,26 @@ mod tests {
         );
 
         // Runs key gen simulation for test parameters.
-        let (mut aug_keys, mut identity_providers) = simulate_key_gen(threshold, n_parties_init);
+        let (mut keys, mut identity_providers) = simulate_keygen(threshold, n_parties_init);
         // Verifies that we got enough keys and identities for "existing" parties from keygen.
-        assert_eq!(aug_keys.len(), identity_providers.len());
-        assert_eq!(aug_keys.len(), n_parties_init as usize);
+        assert_eq!(keys.len(), identity_providers.len());
+        assert_eq!(keys.len(), n_parties_init as usize);
 
-        // Keep copy of current public key for later verification.
-        let pub_key_init = aug_keys[0].base.public_key();
+        // Keep copy of initial keys, identity providers and current public key for later verification.
+        let keys_init = keys.clone();
+        let identity_providers_init = identity_providers.clone();
+        let pub_key_init = keys[0].base.public_key();
 
         // Removes some existing parties.
         if n_parties_new < n_parties_init {
-            aug_keys.truncate(n_parties_new as usize);
+            keys.truncate(n_parties_new as usize);
             identity_providers.truncate(n_parties_new as usize);
         }
 
         // Creates key configs and party indices for continuing/existing parties.
         let mut party_key_configs = Vec::new();
         let mut current_to_new_idx_map = HashMap::new();
-        for (i, key) in aug_keys.iter().enumerate() {
+        for (i, key) in keys.iter().enumerate() {
             // Create party key config and index entry.
             let idx = i as u16 + 1;
             let (signing_share, sub_share) = key.extra.as_ref().unwrap();
@@ -270,7 +281,7 @@ mod tests {
             // Verifies that the public key hasn't changed.
             assert_eq!(new_key.base.public_key(), pub_key_init);
             // Verifies that the "signing share" and "sub-share" have changed for existing/continuing parties.
-            if let Some(prev_key) = aug_keys.get(i) {
+            if let Some(prev_key) = keys.get(i) {
                 let (prev_signing_share, prev_sub_share) = prev_key.extra.as_ref().unwrap();
                 let (new_signing_share, new_sub_share) = new_key.extra.as_ref().unwrap();
                 assert_ne!(
@@ -280,5 +291,15 @@ mod tests {
                 assert_ne!(new_sub_share.as_tuple(), prev_sub_share.as_tuple());
             }
         }
+
+        (
+            (keys_init, identity_providers_init),
+            (new_keys, identity_providers),
+        )
+    }
+
+    #[test]
+    fn share_removal_works() {
+        generate_parties_and_simulate_share_removal(2, 5, 4, 2);
     }
 }

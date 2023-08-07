@@ -244,7 +244,7 @@ impl_state_machine_for_augmented_state_machine!(
 );
 
 // Implement `Debug` trait for `AugmentedSigning` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedSigning<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Augmented Signing")
@@ -252,14 +252,14 @@ impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedSigning<'a, I> {
 }
 
 // Implement `Debug` trait for `AugmentedPreSigning` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedPreSigning<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Augmented Pre-signing")
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 pub mod tests {
     use crate::augmented_state_machine::SubShareOutput;
     use cggmp_threshold_ecdsa::sign::SigningOutput;
@@ -274,9 +274,9 @@ pub mod tests {
     use wamu_core::test_utils::MockECDSAIdentityProvider;
 
     use super::*;
-    use crate::keygen::tests::simulate_key_gen;
+    use crate::keygen::tests::simulate_keygen;
 
-    fn simulate_sign(
+    pub fn simulate_sign(
         keys_and_pre_signing_output: Vec<(
             &SigningShare,
             &SubShare,
@@ -320,7 +320,7 @@ pub mod tests {
         simulation.run().unwrap()
     }
 
-    fn simulate_pre_sign(
+    pub fn simulate_pre_sign(
         inputs: Vec<(
             &SigningShare,
             &SubShare,
@@ -381,7 +381,7 @@ pub mod tests {
         simulation.run().unwrap()
     }
 
-    fn generate_pre_sign_input<'a, 'b>(
+    pub fn generate_pre_sign_input<'a, 'b>(
         aug_keys: &'a [AugmentedType<LocalKey<Secp256k1>, SubShareOutput>],
         identity_providers: &'b [MockECDSAIdentityProvider],
         n_participants: u16,
@@ -468,7 +468,15 @@ pub mod tests {
     }
 
     // NOTE: Quorum size = threshold + 1
-    fn generate_parties_and_simulate_signing(threshold: u16, n_parties: u16, n_participants: u16) {
+    pub fn generate_parties_and_simulate_signing(
+        threshold: u16,
+        n_parties: u16,
+        n_participants: u16,
+    ) -> (
+        Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+        Vec<MockECDSAIdentityProvider>,
+        Vec<AugmentedType<Option<SigningOutput<Secp256k1>>, AdditionalOutput>>,
+    ) {
         // Verifies parameter invariants.
         assert!(threshold >= 1, "minimum threshold is one");
         assert!(
@@ -485,13 +493,13 @@ pub mod tests {
         );
 
         // Runs key gen simulation for test parameters.
-        let (aug_keys, identity_providers) = simulate_key_gen(threshold, n_parties);
+        let (keys, identity_providers) = simulate_keygen(threshold, n_parties);
         // Verifies that we got enough keys and identities for "existing" parties from keygen.
-        assert_eq!(aug_keys.len(), identity_providers.len());
-        assert_eq!(aug_keys.len(), n_parties as usize);
+        assert_eq!(keys.len(), identity_providers.len());
+        assert_eq!(keys.len(), n_parties as usize);
 
         // Extracts and verifies the shared secret key.
-        let secret_shares: Vec<Scalar<Secp256k1>> = aug_keys
+        let secret_shares: Vec<Scalar<Secp256k1>> = keys
             .iter()
             .enumerate()
             .map(|(idx, it)| {
@@ -508,11 +516,11 @@ pub mod tests {
                 .unwrap()
             })
             .collect();
-        let sec_key = aug_keys[0].base.vss_scheme.reconstruct(
+        let sec_key = keys[0].base.vss_scheme.reconstruct(
             &(0..n_parties).collect::<Vec<u16>>(),
             &secret_shares.clone(),
         );
-        let pub_key = aug_keys[0].base.public_key();
+        let pub_key = keys[0].base.public_key();
         assert_eq!(Point::<Secp256k1>::generator() * &sec_key, pub_key);
 
         // Verifies that transforming of x_i, which is a (t,n) share of x, into a (t,t+1) share omega_i using
@@ -520,7 +528,7 @@ pub mod tests {
         // Ref: https://eprint.iacr.org/2021/060.pdf (Section 1.2.8)
         // Ref: https://eprint.iacr.org/2019/114.pdf (Section 4.2)
         // Ref: https://eprint.iacr.org/2020/540.pdf (Section 3.2)
-        let omega_shares: Vec<Scalar<Secp256k1>> = aug_keys[0..n_participants as usize]
+        let omega_shares: Vec<Scalar<Secp256k1>> = keys[0..n_participants as usize]
             .iter()
             .enumerate()
             .map(|(idx, it)| {
@@ -540,8 +548,7 @@ pub mod tests {
 
         // Runs pre-signing simulation for test parameters and verifies the results.
         let pre_signing_output_idx = 1; // l in the CGGMP20 paper.
-        let pre_sign_inputs =
-            generate_pre_sign_input(&aug_keys, &identity_providers, n_participants);
+        let pre_sign_inputs = generate_pre_sign_input(&keys, &identity_providers, n_participants);
         let ssids: Vec<SSID<Secp256k1>> = pre_sign_inputs
             .iter()
             .map(|(_, _, _, ssid, ..)| ssid.clone())
@@ -591,7 +598,7 @@ pub mod tests {
             .filter_map(|it| {
                 it.base.map(|(output, transcript)| {
                     let idx = output.i as usize - 1;
-                    let aug_key = &aug_keys[idx];
+                    let aug_key = &keys[idx];
                     let (signing_share, sub_share) = aug_key.extra.as_ref().unwrap();
                     (
                         signing_share,
@@ -626,6 +633,8 @@ pub mod tests {
         let expected_signature = (r_direct, s_direct);
         // Compares expected signature
         assert_eq!(signature, expected_signature);
+
+        (keys, identity_providers, results)
     }
 
     // All parties (2/2 signing).

@@ -1,6 +1,6 @@
 //! A Rust implementation of the core [Wamu protocol](https://wamu.tech/specification) for building [threshold signature](https://academy.binance.com/en/articles/threshold-signatures-explained) wallets controlled by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
-#![cfg_attr(doc_cfg, feature(doc_cfg))]
+#![feature(doc_cfg)]
 
 pub use self::{
     errors::{
@@ -30,5 +30,5 @@ pub mod utils;
 pub mod wrappers;
 
 #[cfg(any(test, feature = "dev"))]
-#[cfg_attr(doc_cfg, doc(cfg(feature = "dev")))]
+#[doc(cfg(feature = "dev"))]
 pub mod test_utils;

@@ -57,6 +57,10 @@ cargo test
 cargo test -p wamu-core
 ```
 
+## Examples
+
+See the [`/crates/cggmp/examples`](/crates/cggmp/examples) directory.
+
 ## License
 
 | Crate                                   | License                                                                                            |

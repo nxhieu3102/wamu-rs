@@ -51,7 +51,7 @@ impl TryFrom<&[u8]> for SecretShare {
 /// A "signing share" as defined by the Wamu protocol.
 ///
 /// Ref: <https://wamu.tech/specification#share-splitting-and-reconstruction>.
-#[derive(Zeroize, ZeroizeOnDrop)]
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct SigningShare([u8; 32]);
 
 impl SigningShare {

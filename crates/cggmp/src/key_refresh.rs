@@ -283,14 +283,14 @@ impl_state_machine_for_augmented_state_machine!(
 );
 
 // Implement `Debug` trait for `AugmentedKeyRefresh` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedKeyRefresh<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Augmented KeyRefresh")
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 pub mod tests {
     use super::*;
     use crate::keygen;
@@ -301,8 +301,8 @@ pub mod tests {
         // Party key configs including the "signing share", "sub-share", identity provider and
         // `LocalKey<Secp256k1>` from `multi-party-ecdsa` with the secret share cleared/zerorized.
         party_key_configs: Vec<(
-            Option<SigningShare>,
-            Option<SubShare>,
+            Option<&SigningShare>,
+            Option<&SubShare>,
             &impl IdentityProvider,
             Option<LocalKey<Secp256k1>>,
             Option<u16>, // new party index,
@@ -334,8 +334,8 @@ pub mod tests {
         {
             simulation.add_party(
                 AugmentedKeyRefresh::new(
-                    signing_share.as_ref(),
-                    sub_share.as_ref(),
+                    signing_share,
+                    sub_share,
                     identity_provider,
                     &verifying_keys,
                     local_key,
@@ -355,20 +355,31 @@ pub mod tests {
 
     // NOTE: FS-DKR operates in the honest majority setting, so t <= n/2 must hold.
     // NOTE: Quorum size = threshold + 1
-    fn generate_parties_and_simulate_key_refresh(
+    pub fn generate_parties_and_simulate_key_refresh(
         threshold_init: u16,
         n_parties_init: u16,
         threshold_new: u16,
         n_parties_new: u16,
+    ) -> (
+        (
+            Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+            Vec<MockECDSAIdentityProvider>,
+        ),
+        (
+            Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+            Vec<MockECDSAIdentityProvider>,
+        ),
     ) {
         // Runs keygen simulation for test parameters.
         let (mut keys, mut identity_providers) =
-            keygen::tests::simulate_key_gen(threshold_init, n_parties_init);
+            keygen::tests::simulate_keygen(threshold_init, n_parties_init);
         // Verifies that we got enough keys and identities for "existing" parties from keygen.
         assert_eq!(keys.len(), identity_providers.len());
         assert_eq!(keys.len(), n_parties_init as usize);
 
-        // Keep copy of current public key for later verification.
+        // Keep copy of initial keys, identity providers and current public key for later verification.
+        let keys_init = keys.clone();
+        let identity_providers_init = identity_providers.clone();
         let pub_key_init = keys[0].base.public_key();
 
         // Removes some existing parties (if necessary).
@@ -376,52 +387,41 @@ pub mod tests {
             keys.truncate(n_parties_new as usize);
             identity_providers.truncate(n_parties_new as usize);
         }
-        let n_continuing_parties = keys.len();
+
+        // Creates identity providers for new parties (if necessary).
+        if n_parties_new > n_parties_init {
+            identity_providers.extend(
+                (1..=(n_parties_new - n_parties_init))
+                    .map(|_| MockECDSAIdentityProvider::generate()),
+            );
+        }
 
         // Creates key configs and party indices for continuing/existing parties.
         let mut party_key_configs = Vec::new();
         let mut current_to_new_idx_map = HashMap::new();
-        for (idx, key) in keys.into_iter().enumerate() {
+        for (i, identity_provider) in identity_providers.iter().enumerate() {
             // Create party key config and index entry.
-            let (signing_share, sub_share) = key.extra.unwrap();
-            let local_key = key.base;
-            current_to_new_idx_map.insert(local_key.i, idx as u16 + 1);
+            let idx = i as u16 + 1;
+            let key_option = keys.get(i);
+            let local_key_option = key_option.map(|key| key.base.clone());
+            let share_output_option = key_option.map(|key| key.extra.as_ref().unwrap());
+            let signing_share_option = share_output_option.map(|(signing_share, _)| signing_share);
+            let sub_share_option = share_output_option.map(|(_, sub_share)| sub_share);
+            if let Some(local_key) = local_key_option.as_ref() {
+                current_to_new_idx_map.insert(local_key.i, idx);
+            }
             party_key_configs.push((
-                Some(signing_share),
-                Some(sub_share),
-                &identity_providers[idx],
-                Some(local_key),
-                None,
-                None,
+                signing_share_option,
+                sub_share_option,
+                identity_provider,
+                local_key_option,
+                key_option.is_none().then_some(idx),
+                key_option.is_none().then_some(threshold_init),
             ));
         }
 
-        // Creates identity providers and key configs for new parties (if necessary).
-        let new_identity_providers_option: Option<Vec<MockECDSAIdentityProvider>> =
-            if n_parties_new > n_parties_init {
-                Some(
-                    (1..=(n_parties_new - n_parties_init))
-                        .map(|_| MockECDSAIdentityProvider::generate())
-                        .collect(),
-                )
-            } else {
-                None
-            };
-        if let Some(new_identity_providers) = new_identity_providers_option.as_ref() {
-            for (idx, identity_provider) in new_identity_providers.iter().enumerate() {
-                party_key_configs.push((
-                    None,
-                    None,
-                    identity_provider,
-                    None,
-                    Some(n_continuing_parties as u16 + idx as u16 + 1),
-                    Some(threshold_init),
-                ))
-            }
-        }
-
         // Runs key refresh simulation for test parameters.
-        let new_keys = simulate_key_refresh(
+        let keys_new = simulate_key_refresh(
             party_key_configs,
             &current_to_new_idx_map,
             threshold_new,
@@ -429,8 +429,8 @@ pub mod tests {
         );
 
         // Verifies the refreshed/generated keys and configuration for all parties.
-        assert_eq!(new_keys.len(), n_parties_new as usize);
-        for key in new_keys {
+        assert_eq!(keys_new.len(), n_parties_new as usize);
+        for key in keys_new.iter() {
             // Verifies threshold and number of parties.
             assert_eq!(key.base.t, threshold_new);
             assert_eq!(key.base.n, n_parties_new);
@@ -439,6 +439,11 @@ pub mod tests {
             // Verifies that the public key hasn't changed.
             assert_eq!(key.base.public_key(), pub_key_init);
         }
+
+        (
+            (keys_init, identity_providers_init),
+            (keys_new, identity_providers),
+        )
     }
 
     // Same parties, same threshold.

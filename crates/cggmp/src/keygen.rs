@@ -155,14 +155,14 @@ impl_state_machine_for_augmented_state_machine!(
 );
 
 // Implement `Debug` trait for `AugmentedKeyGen` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for AugmentedKeyGen<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Augmented KeyGen")
     }
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 pub mod tests {
     use super::*;
     use curv::elliptic::curves::{Scalar, Secp256k1};
@@ -170,7 +170,7 @@ pub mod tests {
     use round_based::dev::Simulation;
     use wamu_core::test_utils::MockECDSAIdentityProvider;
 
-    pub fn simulate_key_gen(
+    pub fn simulate_keygen(
         threshold: u16,
         n_parties: u16,
     ) -> (
@@ -210,7 +210,7 @@ pub mod tests {
     }
 
     #[test]
-    fn key_gen_works() {
+    fn keygen_works() {
         // Iterates over parameters for creating test cases with different thresholds and number of parties.
         // NOTE: Quorum size = threshold + 1
         for (threshold, n_parties) in [
@@ -220,7 +220,7 @@ pub mod tests {
             (2, 4),
         ] {
             // Runs keygen simulation for test parameters.
-            let (keys, _) = simulate_key_gen(threshold, n_parties);
+            let (keys, _) = simulate_keygen(threshold, n_parties);
 
             // Create copy of public key for later verification.
             let pub_key = keys[0].base.public_key();

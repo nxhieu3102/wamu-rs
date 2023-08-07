@@ -157,20 +157,21 @@ impl<'a, I: IdentityProvider> AuthorizedKeyRefresh<'a, I> for ShareRecoveryQuoru
 impl_state_machine_for_authorized_key_refresh!(ShareRecoveryQuorum, idx, n_parties);
 
 // Implement `Debug` trait for `ShareRecoveryQuorum` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for ShareRecoveryQuorum<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Share Recovery Quorum")
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "dev"))]
+pub mod tests {
     use super::*;
     use crate::augmented_state_machine::{AugmentedType, SubShareOutput};
-    use crate::keygen::tests::simulate_key_gen;
+    use crate::keygen::tests::simulate_keygen;
     use curv::elliptic::curves::Scalar;
     use round_based::dev::Simulation;
+    use wamu_core::test_utils::MockECDSAIdentityProvider;
 
     pub fn simulate_share_recovery_quorum(
         // Party key configs including the "signing share", "sub-share", identity provider and
@@ -225,25 +226,28 @@ mod tests {
         simulation.run().unwrap()
     }
 
-    #[test]
-    fn share_recovery_quorum_works() {
-        let threshold = 2;
-        let n_parties = 4;
-        let recovering_party_idx = 2u16;
-
+    pub fn generate_parties_and_simulate_share_recovery_quorum(
+        threshold: u16,
+        n_parties: u16,
+        recovering_party_idx: u16,
+    ) -> (
+        Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+        Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+        Vec<MockECDSAIdentityProvider>,
+    ) {
         // Runs key gen simulation for test parameters.
-        let (aug_keys, identity_providers) = simulate_key_gen(threshold, n_parties);
+        let (keys, identity_providers) = simulate_keygen(threshold, n_parties);
         // Verifies that we got enough keys and identities for "existing" parties from keygen.
-        assert_eq!(aug_keys.len(), identity_providers.len());
-        assert_eq!(aug_keys.len(), n_parties as usize);
+        assert_eq!(keys.len(), identity_providers.len());
+        assert_eq!(keys.len(), n_parties as usize);
 
         // Keep copy of current public key for later verification.
-        let pub_key_init = aug_keys[0].base.public_key();
+        let pub_key_init = keys[0].base.public_key();
 
         // Creates key configs and party indices for all parties.
         let mut party_key_configs = Vec::new();
         let mut current_to_new_idx_map = HashMap::new();
-        for (i, key) in aug_keys.iter().enumerate() {
+        for (i, key) in keys.iter().enumerate() {
             // Create party key config and index entry.
             let idx = i as u16 + 1;
             let (signing_share, sub_share) = key.extra.as_ref().unwrap();
@@ -285,7 +289,7 @@ mod tests {
             // Verifies that the public key hasn't changed.
             assert_eq!(new_key.base.public_key(), pub_key_init);
             // Verifies that the "signing share" and "sub-share" have changed.
-            let (prev_signing_share, prev_sub_share) = aug_keys[i].extra.as_ref().unwrap();
+            let (prev_signing_share, prev_sub_share) = keys[i].extra.as_ref().unwrap();
             let (new_signing_share, new_sub_share) = new_key.extra.as_ref().unwrap();
             assert_ne!(
                 new_signing_share.to_be_bytes(),
@@ -293,5 +297,12 @@ mod tests {
             );
             assert_ne!(new_sub_share.as_tuple(), prev_sub_share.as_tuple());
         }
+
+        (keys, new_keys, identity_providers)
+    }
+
+    #[test]
+    fn share_recovery_quorum_works() {
+        generate_parties_and_simulate_share_recovery_quorum(2, 4, 2);
     }
 }

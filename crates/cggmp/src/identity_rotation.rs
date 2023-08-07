@@ -373,17 +373,20 @@ impl IsCritical for Error {
 }
 
 // Implement `Debug` trait for `IdentityRotation` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<'a, I: IdentityProvider> std::fmt::Debug for IdentityRotation<'a, I> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Identity Rotation")
     }
 }
 
-#[cfg(test)]
-mod tests {
+#[cfg(any(test, feature = "dev"))]
+pub mod tests {
     use super::*;
-    use crate::keygen::tests::simulate_key_gen;
+    use crate::augmented_state_machine::{AugmentedType, SubShareOutput};
+    use crate::keygen::tests::simulate_keygen;
+    use curv::elliptic::curves::Secp256k1;
+    use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::state_machine::keygen::LocalKey;
     use round_based::dev::Simulation;
     use wamu_core::test_utils::MockECDSAIdentityProvider;
 
@@ -426,23 +429,26 @@ mod tests {
         simulation.run().unwrap()
     }
 
-    #[test]
-    fn identity_rotation_works() {
-        let threshold = 2;
-        let n_parties = 4;
-        let rotating_party_idx = 2;
-
+    pub fn generate_parties_and_simulate_identity_rotation(
+        threshold: u16,
+        n_parties: u16,
+        rotating_party_idx: u16,
+    ) -> (
+        Vec<AugmentedType<LocalKey<Secp256k1>, SubShareOutput>>,
+        Vec<MockECDSAIdentityProvider>,
+        MockECDSAIdentityProvider,
+    ) {
         // Runs key gen simulation for test parameters.
-        let (aug_keys, identity_providers) = simulate_key_gen(threshold, n_parties);
+        let (keys, identity_providers) = simulate_keygen(threshold, n_parties);
         // Verifies that we got enough keys and identities for "existing" parties from keygen.
-        assert_eq!(aug_keys.len(), identity_providers.len());
-        assert_eq!(aug_keys.len(), n_parties as usize);
+        assert_eq!(keys.len(), identity_providers.len());
+        assert_eq!(keys.len(), n_parties as usize);
 
         // Creates new identity provider for rotating party.
         let new_identity_provider = MockECDSAIdentityProvider::generate();
 
         // Retrieves "signing share" and "sub-share" for rotating party.
-        let (signing_share, sub_share) = aug_keys[rotating_party_idx as usize - 1]
+        let (signing_share, sub_share) = keys[rotating_party_idx as usize - 1]
             .extra
             .as_ref()
             .unwrap();
@@ -494,5 +500,12 @@ mod tests {
                 );
             }
         }
+
+        (keys, identity_providers, new_identity_provider)
+    }
+
+    #[test]
+    fn identity_rotation_works() {
+        generate_parties_and_simulate_identity_rotation(2, 4, 2);
     }
 }

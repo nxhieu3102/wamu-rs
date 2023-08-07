@@ -419,7 +419,7 @@ pub fn split_key_output(
 }
 
 // Implement `Debug` trait for `AugmentedType` for test simulations.
-#[cfg(test)]
+#[cfg(any(test, feature = "dev"))]
 impl<T, E> std::fmt::Debug for AugmentedType<T, E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "Augmented Type")
