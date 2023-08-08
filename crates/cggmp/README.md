@@ -42,7 +42,7 @@ cargo add wamu-cggmp
 Or you can access documentation locally by running the following command from the project root
 
 ```shell
-cargo doc -p wamu-cggmp --open
+cargo doc --no-deps -p wamu-cggmp --open
 ```
 
 ## Testing

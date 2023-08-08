@@ -39,7 +39,7 @@ Check the readme of each crate for installation and usage instructions and links
 Or you can access documentation locally by running the following command from the project root
 
 ```shell
-cargo doc --open
+cargo doc --no-deps --open
 ```
 
 To open crate specific docs, see instructions in the readme in each crate's directory.
