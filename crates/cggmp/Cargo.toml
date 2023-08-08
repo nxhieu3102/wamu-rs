@@ -23,16 +23,19 @@ sha2 = "0.10.7"
 git = "https://github.com/davidsemakula/cggmp-threshold-ecdsa"
 branch = "wamu"
 default-features = false
+version = "0.1.0"
 features = ["num-bigint"]
 
 [dependencies.multi-party-ecdsa]
 git = "https://github.com/davidsemakula/multi-party-ecdsa"
 branch = "wamu"
+version = "0.8.1"
 default-features = false
 
 [dependencies.fs-dkr]
 git = "https://github.com/davidsemakula/fs-dkr"
 branch = "wamu"
+version = "0.1.0"
 default-features = false
 
 [dev-dependencies]
