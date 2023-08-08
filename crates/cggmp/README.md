@@ -53,6 +53,10 @@ You can run unit tests for all the core functionality by running the following c
 cargo test -p wamu-cggmp
 ```
 
+## Examples
+
+See the [`/crates/cggmp/examples`](/crates/cggmp/examples) directory.
+
 ## License
 
 Licensed under [GPL-3.0](https://github.com/wamutech/wamu-rs/tree/master/LICENSE-GPL).
