@@ -32,14 +32,12 @@ This crate is a PoC (Proof of Concept) implementation of the [Wamu protocol](htt
 Run the following Cargo command in your project directory
 
 ```shell
-cargo add wamu-cggmp
+cargo add wamu-cggmp --git https://github.com/wamutech/wamu-rs.git
 ```
 
 ## Documentation
 
-[https://docs.rs/wamu-cggmp/latest/wamu_cggmp/](https://docs.rs/wamu-cggmp/latest/wamu_cggmp/)
-
-Or you can access documentation locally by running the following command from the project root
+You can access documentation locally by running the following command from the project root
 
 ```shell
 cargo doc --no-deps -p wamu-cggmp --open

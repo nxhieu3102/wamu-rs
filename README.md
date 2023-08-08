@@ -34,7 +34,7 @@ Check the readme of each crate for installation and usage instructions and links
 ## Documentation
 
 - Wamu Core ([wamu-core](/crates/core)): [https://docs.rs/wamu-core/latest/wamu_core/](https://docs.rs/wamu-core/latest/wamu_core/)
-- Wamu CGGMP ([wamu-cggmp](/crates/cggmp)): [https://docs.rs/wamu-cggmp/latest/wamu_cggmp/](https://docs.rs/wamu-cggmp/latest/wamu_cggmp/)
+- Wamu CGGMP ([wamu-cggmp](/crates/cggmp)): See [instructions in the crate's README](/crates/cggmp/README.md#documentation)
 
 Or you can access documentation locally by running the following command from the project root
 
