@@ -23,7 +23,7 @@ This crate is a PoC (Proof of Concept) implementation of the [Wamu protocol](htt
 
 ### PoC implementation specific limitations and deviations from CGGMP20 
 
-- Due to reliance on `cggmp-threshold-ecdsa` which uses [FS-DKR (which assumes an honest majority)](https://github.com/webb-tools/fs-dkr#our-model) for the key refresh implementation, key refresh and related protocols (i.e. share addition, share removal, threshold modification and share recovery with quorum) all operate in an honest majority setting (i.e. threshold must be at least half the number of parties).
+- Due to reliance on `cggmp-threshold-ecdsa` which uses [FS-DKR (which assumes an honest majority)](https://github.com/webb-tools/fs-dkr#our-model) for the key refresh implementation, key refresh and related protocols (i.e. share addition, share removal, threshold modification and share recovery with quorum) all operate in an honest majority setting (i.e. threshold cannot be more than half the number of parties).
 - Due to reliance on `cggmp-threshold-ecdsa` (and [round-based-protocol](https://github.com/ZenGo-X/round-based-protocol)), state machine implementations use/require `u16` party identifiers instead of using decentralized verifying keys/addresses for the same purpose.
 - Only 4-round $O(n^2)$ with identifiable abort version of CGGMP20 signing is implemented.
 
