@@ -395,11 +395,11 @@ pub mod tests {
         HashMap<u16, BigInt>,
         HashMap<u16, BigInt>,
     )> {
-        // Generates auxiliary "ring" Pedersen parameters for all parties.
+        // Generates auxiliary "ring" Pedersen parameters for all participants.
         let mut aux_ring_pedersen_n_hat_values = HashMap::with_capacity(aug_keys.len());
         let mut aux_ring_pedersen_s_values = HashMap::with_capacity(aug_keys.len());
         let mut aux_ring_pedersen_t_values = HashMap::with_capacity(aug_keys.len());
-        for idx in 1..=n_participants as u16 {
+        for idx in 1..=n_participants {
             let (ring_pedersen_params, _) = RingPedersenStatement::<Secp256k1, Sha256>::generate();
             aux_ring_pedersen_n_hat_values.insert(idx, ring_pedersen_params.N);
             aux_ring_pedersen_s_values.insert(idx, ring_pedersen_params.S);
@@ -408,7 +408,7 @@ pub mod tests {
         // Reconstructs secret shares, creates pre-signing inputs and auxiliary parameters for ZK proofs.
         let generator = Point::<Secp256k1>::generator().to_point();
         let group_order = Scalar::<Secp256k1>::group_order();
-        let party_indices: Vec<u16> = (1..=n_participants as u16).collect();
+        let party_indices: Vec<u16> = (1..=n_participants).collect();
         aug_keys[0..n_participants as usize]
             .iter()
             .enumerate()
@@ -628,10 +628,10 @@ pub mod tests {
         let mut hasher = sha2::Sha256::new();
         hasher.update(message);
         let message_digest = BigInt::from_bytes(&hasher.finalize());
+        // Verifies against expected signature.
         let s_direct =
             (k.to_bigint() * (message_digest + (&r_direct * &sec_key.to_bigint()))).mod_floor(q);
         let expected_signature = (r_direct, s_direct);
-        // Compares expected signature
         assert_eq!(signature, expected_signature);
 
         (keys, identity_providers, results)
