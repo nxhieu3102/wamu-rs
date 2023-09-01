@@ -1,6 +1,6 @@
 [package]
 name = "wamu-core"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "A Rust implementation of the core Wamu protocol for computation of threshold signatures by multiple decentralized identities."
 license = "MIT OR Apache-2.0"
