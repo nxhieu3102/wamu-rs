@@ -631,7 +631,7 @@ to attach them to the start of each source file to most effectively
 state the exclusion of warranty; and each file should have at least
 the "copyright" line and a pointer to where the full notice is found.
 
-    Wamu - A protocol and library for building threshold signature wallets controlled by multiple decentralized identities.
+    Wamu - A protocol and library for computation of threshold signatures by multiple decentralized identities.
     Copyright (C) 2023  David Semakula
 
     This program is free software: you can redistribute it and/or modify

@@ -2,7 +2,7 @@
 name = "wamu-core"
 version = "0.1.0"
 edition = "2021"
-description = "A Rust implementation of the core Wamu protocol for building threshold signature wallets controlled by multiple decentralized identities."
+description = "A Rust implementation of the core Wamu protocol for computation of threshold signatures by multiple decentralized identities."
 license = "MIT OR Apache-2.0"
 authors = ["David Semakula <hello@davidsemakula.com>"]
 
