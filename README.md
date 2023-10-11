@@ -1,6 +1,6 @@
 # Wamu
 
-A collection of modular [Rust](https://www.rust-lang.org/) libraries for implementing the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://academy.binance.com/en/articles/threshold-signatures-explained) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+A collection of modular [Rust](https://www.rust-lang.org/) libraries for implementing the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://en.wikipedia.org/wiki/Threshold_cryptosystem#Methodology) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
 ## ⚠️ Security Warning
 

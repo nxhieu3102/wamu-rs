@@ -1,6 +1,6 @@
 # Wamu CGGMP
 
-A Rust implementation of [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with augmentations as described by the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://academy.binance.com/en/articles/threshold-signatures-explained) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+A Rust implementation of [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with augmentations as described by the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://en.wikipedia.org/wiki/Threshold_cryptosystem#Methodology) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
 It uses the [Wamu Core (wamu-core)](https://github.com/wamutech/wamu-rs/tree/master/crates/core) crate for [Wamu](https://wamu.tech/specification)'s core sub-protocols and augmentations, and [Webb tool's cggmp-threshold-ecdsa](https://github.com/webb-tools/cggmp-threshold-ecdsa) crate for the [CGGMP20](https://eprint.iacr.org/2021/060.pdf) implementation that it wraps and augments.
 
@@ -21,9 +21,9 @@ This crate is a PoC (Proof of Concept) implementation of the [Wamu protocol](htt
   - This also required [modifications/additions to the FS-DKR library](https://github.com/davidsemakula/fs-dkr/commit/4414f386ceb2a7d84f5d685a911e0708ecff2808) which `cggmp-threshold-ecdsa` uses on for key refresh implementation which are made in a [fork of FS-DKR](https://github.com/davidsemakula/fs-dkr/commits/wamu).
 - Minor public interface changes to `pub` relevant fields required for augmentation.
 
-### PoC implementation specific limitations and deviations from CGGMP20 
+### PoC implementation specific limitations, issues and deviations from CGGMP20 
 
-- Due to reliance on `cggmp-threshold-ecdsa`, key generation is based on [GG20](https://eprint.iacr.org/2020/540.pdf) using [ZenGo's multi-party-ecdsa](https://github.com/ZenGo-X/multi-party-ecdsa) library.
+- Due to reliance on `cggmp-threshold-ecdsa`, key generation is based on [GG20](https://eprint.iacr.org/2020/540.pdf) using [ZenGo's multi-party-ecdsa](https://github.com/ZenGo-X/multi-party-ecdsa) library, which is no longer maintained and contains some known and un-patched vulnerabilities (see https://www.fireblocks.com/blog/gg18-and-gg20-paillier-key-vulnerability-technical-report/ and https://www.verichains.io/tsshock/).
 - Due to reliance on `cggmp-threshold-ecdsa` which uses [FS-DKR (which assumes an honest majority)](https://github.com/webb-tools/fs-dkr#our-model) for the key refresh implementation, key refresh and related protocols (i.e. share addition, share removal, threshold modification and share recovery with quorum) all operate in an honest majority setting (i.e. the threshold cannot be greater than half the number of parties).
 - Due to reliance on `cggmp-threshold-ecdsa` (and [round-based-protocol](https://github.com/ZenGo-X/round-based-protocol)), state machine implementations use/require `u16` party identifiers instead of using decentralized verifying keys/addresses for the same purpose.
 - Only 4-round $O(n^2)$ with identifiable abort version of CGGMP20 signing is implemented.

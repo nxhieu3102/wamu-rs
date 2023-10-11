@@ -1,4 +1,4 @@
-//! A Rust implementation of the core [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://academy.binance.com/en/articles/threshold-signatures-explained) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+//! A Rust implementation of the core [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://en.wikipedia.org/wiki/Threshold_cryptosystem#Methodology) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
 
 #![feature(doc_cfg)]
 
