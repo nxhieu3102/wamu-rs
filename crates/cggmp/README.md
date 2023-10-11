@@ -1,6 +1,6 @@
 # Wamu CGGMP
 
-A Rust implementation of [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with augmentations as described by the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://en.wikipedia.org/wiki/Threshold_cryptosystem#Methodology) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/).
+A Rust implementation of [CGGMP20](https://eprint.iacr.org/2021/060.pdf) with augmentations as described by the [Wamu protocol](https://wamu.tech/specification) for computation of [threshold signatures](https://en.wikipedia.org/wiki/Threshold_cryptosystem#Methodology) by multiple [decentralized identities](https://ethereum.org/en/decentralized-identity/#what-are-decentralized-identifiers).
 
 It uses the [Wamu Core (wamu-core)](https://github.com/wamutech/wamu-rs/tree/master/crates/core) crate for [Wamu](https://wamu.tech/specification)'s core sub-protocols and augmentations, and [Webb tool's cggmp-threshold-ecdsa](https://github.com/webb-tools/cggmp-threshold-ecdsa) crate for the [CGGMP20](https://eprint.iacr.org/2021/060.pdf) implementation that it wraps and augments.
 

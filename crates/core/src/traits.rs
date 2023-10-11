@@ -2,7 +2,7 @@
 
 use crate::crypto::{Signature, VerifyingKey};
 
-/// Interface for a [decentralized identity](https://ethereum.org/en/decentralized-identity/) provider.
+/// Interface for a [decentralized identity](https://ethereum.org/en/decentralized-identity/#what-are-decentralized-identifiers) provider.
 ///
 /// **NOTE:** For interoperability with existing wallet solutions,
 /// the only requirement for decentralized identity providers is
