@@ -79,11 +79,7 @@ impl TryFrom<&[u8]> for SigningShare {
     /// Converts a slice of bytes into a "signing share".
     fn try_from(slice: &[u8]) -> Result<Self, Self::Error> {
         // Input slice must be 32 bytes long.
-        if slice.len() == 32 {
-            Ok(Self(slice.try_into().map_err(|_| Error::Encoding)?))
-        } else {
-            Err(Error::Encoding)
-        }
+        Ok(Self(slice.try_into().map_err(|_| Error::Encoding)?))
     }
 }
 

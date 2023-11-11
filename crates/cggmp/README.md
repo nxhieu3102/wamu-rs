@@ -28,6 +28,8 @@ This crate is a PoC (Proof of Concept) implementation of the [Wamu protocol](htt
 - Due to reliance on `cggmp-threshold-ecdsa` (and [round-based-protocol](https://github.com/ZenGo-X/round-based-protocol)), state machine implementations use/require `u16` party identifiers instead of using decentralized verifying keys/addresses for the same purpose.
 - Only 4-round $O(n^2)$ with identifiable abort version of CGGMP20 signing is implemented.
 
+**NOTE**: There's an ongoing collaborative effort to resolve `cggmp-threshold-ecdsa`'s deviations from CGGMP20 (see https://github.com/webb-tools/cggmp-threshold-ecdsa/issues/37 for details and progress).
+
 ## Installation
 
 Run the following Cargo command in your project directory

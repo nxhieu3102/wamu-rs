@@ -7,7 +7,7 @@ use zeroize::Zeroize;
 
 use crate::errors::{CryptoError, Error};
 
-// Order of the `Secp256k1` elliptic curve a `crypto-bigint` modulus type.
+// Order of the `Secp256k1` elliptic curve as a `crypto-bigint` modulus type.
 // Ref: <https://www.secg.org/sec2-v2.pdf>.
 // Ref: <https://en.bitcoin.it/wiki/Secp256k1>.
 impl_modulus!(
