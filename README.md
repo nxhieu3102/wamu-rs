@@ -78,3 +78,8 @@ See the [`/crates/cggmp/examples`](/crates/cggmp/examples) directory.
 ## Acknowledgements
 
 🌱 Funded by: the [Ethereum Foundation](https://esp.ethereum.foundation/).
+
+-----
+
+# Optimized Paillier
+> Paper: [Optimized Paillier's Cryptosystem with Fast Encryption and Decryption](https://dl.acm.org/doi/fullHtml/10.1145/3485832.3485842)
